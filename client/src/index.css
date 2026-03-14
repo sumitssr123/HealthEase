@@ -1,0 +1,110 @@
+/* premium poppins font import */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+/* premium animated gradient background */
+body {
+  margin: 0;
+  font-family: 'Poppins', sans-serif !important;
+  /* soft blue aur purplish premium gradient */
+  background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%) !important;
+  background-attachment: fixed !important;
+  color: #2d3748;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, monospace;
+}
+
+/* headings ko modern aur bold look */
+h1, h2, h3, h4, h5, h6 {
+  color: #1a202c;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+
+/* premium glassmorphism effect for cards */
+.ant-card {
+  border-radius: 16px !important;
+  /* halka transparent background sheeshe ke effect ke liye */
+  background: rgba(255, 255, 255, 0.75) !important;
+  /* piche ke background ko blur karne ke liye */
+  backdrop-filter: blur(12px) !important;
+  /* sheeshe ke kinare jaisa border */
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.07) !important;
+  transition: all 0.3s ease-in-out;
+}
+
+/* card par hover karne se premium 3d uthaav */
+.ant-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 40px rgba(31, 38, 135, 0.15) !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* buttons ka base premium look */
+.btn {
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  padding: 10px 24px !important;
+  transition: all 0.3s ease !important;
+  letter-spacing: 0.3px;
+}
+
+/* primary button with soft blue gradient */
+.btn-primary {
+  background: linear-gradient(135deg, #4e73df 0%, #224abe 100%) !important;
+  border: none !important;
+  color: white !important;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(78, 115, 223, 0.3);
+}
+
+/* success button with modern green gradient */
+.btn-success {
+  background: linear-gradient(135deg, #1cc88a 0%, #13855c 100%) !important;
+  border: none !important;
+  color: white !important;
+}
+
+.btn-success:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(28, 200, 138, 0.3);
+}
+
+/* form inputs aur pickers ko clean look */
+.ant-input, .ant-picker {
+  border-radius: 8px !important;
+  padding: 10px 15px !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* input focus par premium glow */
+.ant-input:focus, .ant-picker:focus, .ant-picker-focused {
+  border-color: #4e73df !important;
+  box-shadow: 0 0 0 2px rgba(78, 115, 223, 0.2) !important;
+}
+
+/* scrollbar ko patla aur premium banana */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.5); 
+}
+ 
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1; 
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8; 
+}
