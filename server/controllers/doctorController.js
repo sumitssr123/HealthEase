@@ -85,11 +85,10 @@ const doctorAppointmentsController = async (req, res) => {
   }
 };
 
-// 5. STATUS UPDATE (APPROVE/REJECT)
+// 5. STATUS UPDATE (APPROVE/REJECT)//for doctor
 const updateStatusController = async (req, res) => {
   try {
     const { appointmentsId, status } = req.body;
-    // 🟢 FIX: { new: true } lagaya taaki status turant save hokar update ho
     const appointments = await appointmentModel.findByIdAndUpdate(
       appointmentsId,
       { status },
