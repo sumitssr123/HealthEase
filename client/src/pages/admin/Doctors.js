@@ -71,14 +71,24 @@ const Doctors = () => {
       render: (text, record) => (
         <div className="d-flex">
           {record.status === "pending" ? (
-            <button
-              className="btn btn-success"
-              onClick={() => handleAccountStatus(record, "approved")}
-            >
-              Approve
-            </button>
+            <>
+              <button
+                className="btn btn-success me-2" // 🟢 added me-2 taaki thoda gap rahe dono button mein
+                onClick={() => handleAccountStatus(record, "approved")}
+              >
+                Approve
+              </button>
+              {/* 🟢 NAYA: Reject Button me function attach kiya */}
+              <button 
+                className="btn btn-danger"
+                onClick={() => handleAccountStatus(record, "rejected")}
+              >
+                Reject
+              </button>
+            </>
           ) : (
-            <button className="btn btn-danger">Reject</button>
+             // 🟢 Agar pehle se action liya ja chuka hai toh Action Taken dikhayega
+             <button className="btn btn-secondary" disabled>Action Taken</button>
           )}
         </div>
       ),

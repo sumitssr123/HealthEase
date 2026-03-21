@@ -2,7 +2,8 @@ const express = require("express");
 const {
   getAllUsersController,
   getAllDoctorsController,
-  changeAccountStatusController, // <--- 1. Import This
+  changeAccountStatusController,
+  blockUserController, // <--- 1. Import (Ye sahi tha tumhara)
 } = require("../controllers/adminController");
 const authMiddleware = require("../middlewares/authMiddleware");
 
@@ -19,6 +20,13 @@ router.post(
   "/changeAccountStatus",
   authMiddleware,
   changeAccountStatusController
-); // <--- 2. Add New Route
+);
+
+// POST || BLOCK USER (NAYA ROUTE ALAG SE BANA HAI 🟢)
+router.post(
+  "/blockUser",
+  authMiddleware,
+  blockUserController
+);
 
 module.exports = router;

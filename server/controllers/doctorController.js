@@ -1,11 +1,10 @@
 const doctorModel = require("../models/doctorModel");
 const appointmentModel = require("../models/appointmentModel");
-const userModel = require("../models/userModel"); // <--- FIX 1: Ye line add ki hai
+const userModel = require("../models/userModel");
 
-// 1. GET SINGLE DOCTOR INFO (Profile Page par dikhane ke liye)
+// 1. GET SINGLE DOCTOR INFO
 const getDoctorInfoController = async (req, res) => {
   try {
-    // userId se doctor dhoondo
     const doctor = await doctorModel.findOne({ userId: req.body.userId });
     res.status(200).send({
       success: true,
@@ -22,12 +21,13 @@ const getDoctorInfoController = async (req, res) => {
   }
 };
 
-// 2. UPDATE PROFILE (Form submit karne par)
+// 2. UPDATE PROFILE
 const updateProfileController = async (req, res) => {
   try {
     const doctor = await doctorModel.findOneAndUpdate(
       { userId: req.body.userId },
-      req.body
+      req.body,
+      { new: true } // 🟢 ADDED: Taaki naya profile data turant wapas aaye
     );
     res.status(201).send({
       success: true,
@@ -44,7 +44,7 @@ const updateProfileController = async (req, res) => {
   }
 };
 
-// 3. GET SINGLE DOCTOR BY ID (Booking Page ke liye)
+// 3. GET SINGLE DOCTOR BY ID
 const getDoctorByIdController = async (req, res) => {
   try {
     const doctor = await doctorModel.findOne({ _id: req.body.doctorId });
@@ -89,9 +89,11 @@ const doctorAppointmentsController = async (req, res) => {
 const updateStatusController = async (req, res) => {
   try {
     const { appointmentsId, status } = req.body;
+    // 🟢 FIX: { new: true } lagaya taaki status turant save hokar update ho
     const appointments = await appointmentModel.findByIdAndUpdate(
       appointmentsId,
-      { status }
+      { status },
+      { new: true } 
     );
     
     // Patient ko Notification bhejna
@@ -100,7 +102,7 @@ const updateStatusController = async (req, res) => {
     notification.push({
       type: "status-updated",
       message: `Your appointment has been ${status}`,
-      onClickPath: "/appointments", // <--- FIX 2: Sahi path patient ke liye
+      onClickPath: "/appointments",
     });
     await user.save();
     
@@ -118,7 +120,7 @@ const updateStatusController = async (req, res) => {
   }
 };
 
-// Yahan export mein bhi naya controller add ho gaya hai 👇
+// Export
 module.exports = { 
     getDoctorInfoController, 
     updateProfileController, 

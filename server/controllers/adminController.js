@@ -44,8 +44,9 @@ const changeAccountStatusController = async (req, res) => {
   try {
     const { doctorId, status } = req.body;
     
-    // 1. Doctor ka status update karo (pending -> approved)
-    const doctor = await doctorModel.findByIdAndUpdate(doctorId, { status });
+    // 1. Doctor ka status update karo (pending -> approved/rejected)
+    // 🟢 FIX: { new: true } add kiya taaki turant update ho
+    const doctor = await doctorModel.findByIdAndUpdate(doctorId, { status }, { new: true });
 
     // 2. User ko dhoondo taaki notification bhej sakein
     const user = await userModel.findOne({ _id: doctor.userId });
@@ -82,9 +83,30 @@ const changeAccountStatusController = async (req, res) => {
   }
 };
 
-// Teeno functions export karein
+// 🟢 4. BLOCK USER LOGIC
+const blockUserController = async (req, res) => {
+  try {
+    // FIX: authMiddleware 'userId' ko overwrite kar deta hai, isliye hum 'blockId' use kar rahe hain
+    const { blockId } = req.body; 
+    await userModel.findByIdAndDelete(blockId); 
+    res.status(200).send({
+      success: true,
+      message: "User Blocked Successfully",
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({
+      success: false,
+      message: "Error while blocking user",
+      error,
+    });
+  }
+};
+
+// Chaaro functions export karein 🟢
 module.exports = { 
   getAllUsersController, 
   getAllDoctorsController, 
-  changeAccountStatusController 
+  changeAccountStatusController,
+  blockUserController // 🟢 Export mein add kiya
 };
