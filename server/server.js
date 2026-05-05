@@ -16,7 +16,8 @@ app.use(express.json());
 // Routes
 app.use('/api/v1/user', require('./routes/userRoutes'));
 app.use("/api/v1/admin", require("./routes/adminRoutes"));
-app.use("/api/v1/doctor", require("./routes/doctorRoutes")); // <--- YE HAI MISSING LINE 🟢
+app.use("/api/v1/doctor", require("./routes/doctorRoutes"));
+app.use("/api/v1/chatbot", require("./routes/chatbotRoutes")); // 🟢 Added properly
 
 // Test Route
 app.get('/', (req, res) => {

@@ -15,6 +15,7 @@ import Appointments from "./pages/Appointments";
 import DoctorAppointments from "./pages/doctor/DoctorAppointments";
 import LandingPage from "./pages/LandingPage";
 import UserProfile from "./pages/UserProfile"; 
+import Chatbot from "./pages/Chatbot";
 
 function App() {
   return (
@@ -129,6 +130,14 @@ function App() {
                 <UserProfile />
               </ProtectedRoute>
             }
+          />
+          <Route 
+          path="/chatbot"
+           element={
+           <ProtectedRoute>
+            <Chatbot />
+            </ProtectedRoute>
+          } 
           />
         </Routes>
       </BrowserRouter>

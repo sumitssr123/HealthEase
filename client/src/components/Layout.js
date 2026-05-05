@@ -4,8 +4,6 @@ import { adminMenu, userMenu } from "../Data/data";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { Badge, message } from "antd";
-// chatbot import pehle se hai
-import Chatbot from "./Chatbot";
 
 const Layout = ({ children }) => {
   const { user } = useSelector((state) => state.user);
@@ -94,9 +92,6 @@ const Layout = ({ children }) => {
             <div className="body">{children}</div>
           </div>
         </div>
-        
-        {/* chatbot ko yahan place kiya hai taaki wo layout ke upar float kare */}
-        <Chatbot />
       </div>
     </>
   );

@@ -16,6 +16,11 @@ export const userMenu = [
     icon: "fa-solid fa-user-doctor",
   },
   {
+    name: "AI Doctor",
+    path: "/chatbot",
+    icon: "fa-solid fa-user-doctor"
+  },
+  {
     name: "My Profile",
     path: "/profile",
     icon: "fa-solid fa-user-gear",
