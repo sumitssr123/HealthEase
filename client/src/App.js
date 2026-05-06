@@ -22,7 +22,6 @@ function App() {
     <>
       <BrowserRouter>
         <Routes>
-          {/* landing page ab default page ban gaya hai */}
           <Route 
             path="/" 
             element={
@@ -32,7 +31,6 @@ function App() {
             } 
           />
 
-          {/* home page ko ab dashboard path par shift kar diya hai */}
           <Route
             path="/dashboard"
             element={
@@ -59,6 +57,7 @@ function App() {
               </PublicRoute>
             }
           />
+          
           <Route
             path="/register"
             element={
@@ -67,6 +66,7 @@ function App() {
               </PublicRoute>
             }
           />
+          
           <Route
             path="/notification"
             element={
@@ -75,6 +75,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          
           <Route
             path="/admin/users"
             element={
@@ -83,6 +84,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          
           <Route
             path="/admin/doctors"
             element={
@@ -91,6 +93,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          
           <Route
             path="/doctor/profile/:id"
             element={
@@ -99,6 +102,17 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* Fallback route taaki ID miss hone par crash na ho */}
+          <Route
+            path="/doctor/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+
           <Route
             path="/doctor/book-appointment/:doctorId"
             element={
@@ -107,6 +121,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          
           <Route
             path="/appointments"
             element={
@@ -115,6 +130,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          
           <Route
             path="/doctor-appointments"
             element={
@@ -123,6 +139,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          
           <Route
             path="/profile"
             element={
@@ -131,13 +148,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          
           <Route 
-          path="/chatbot"
-           element={
-           <ProtectedRoute>
-            <Chatbot />
-            </ProtectedRoute>
-          } 
+            path="/chatbot"
+            element={
+             <ProtectedRoute>
+              <Chatbot />
+             </ProtectedRoute>
+            } 
           />
         </Routes>
       </BrowserRouter>

@@ -2,7 +2,6 @@ const doctorModel = require("../models/doctorModel");
 const appointmentModel = require("../models/appointmentModel");
 const userModel = require("../models/userModel");
 
-// 1. GET SINGLE DOCTOR INFO
 const getDoctorInfoController = async (req, res) => {
   try {
     const doctor = await doctorModel.findOne({ userId: req.body.userId });
@@ -21,13 +20,12 @@ const getDoctorInfoController = async (req, res) => {
   }
 };
 
-// 2. UPDATE PROFILE
 const updateProfileController = async (req, res) => {
   try {
     const doctor = await doctorModel.findOneAndUpdate(
       { userId: req.body.userId },
       req.body,
-      { new: true } // 🟢 ADDED: Taaki naya profile data turant wapas aaye
+      { new: true } 
     );
     res.status(201).send({
       success: true,
@@ -44,7 +42,6 @@ const updateProfileController = async (req, res) => {
   }
 };
 
-// 3. GET SINGLE DOCTOR BY ID
 const getDoctorByIdController = async (req, res) => {
   try {
     const doctor = await doctorModel.findOne({ _id: req.body.doctorId });
@@ -63,13 +60,27 @@ const getDoctorByIdController = async (req, res) => {
   }
 };
 
-// 4. GET DOCTOR APPOINTMENTS
 const doctorAppointmentsController = async (req, res) => {
   try {
     const doctor = await doctorModel.findOne({ userId: req.body.userId });
+
+    if (!doctor) {
+      return res.status(200).send({
+        success: true,
+        message: "No doctor profile found for this user",
+        data: []
+      });
+    }
+
     const appointments = await appointmentModel.find({
-      doctorId: doctor._id,
+      $or: [
+        { doctorId: doctor._id },
+        { doctorId: doctor._id.toString() },
+        { "doctorInfo._id": doctor._id },
+        { "doctorInfo._id": doctor._id.toString() }
+      ]
     });
+
     res.status(200).send({
       success: true,
       message: "Doctor Appointments Fetch Successfully",
@@ -85,7 +96,6 @@ const doctorAppointmentsController = async (req, res) => {
   }
 };
 
-// 5. STATUS UPDATE (APPROVE/REJECT)//for doctor
 const updateStatusController = async (req, res) => {
   try {
     const { appointmentsId, status } = req.body;
@@ -95,7 +105,6 @@ const updateStatusController = async (req, res) => {
       { new: true } 
     );
     
-    // Patient ko Notification bhejna
     const user = await userModel.findOne({ _id: appointments.userId });
     const notification = user.notification;
     notification.push({
@@ -119,7 +128,6 @@ const updateStatusController = async (req, res) => {
   }
 };
 
-// Export
 module.exports = { 
     getDoctorInfoController, 
     updateProfileController, 

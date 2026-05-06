@@ -3,7 +3,7 @@ import Layout from "../components/Layout";
 import { message, Tabs } from "antd";
 import { useSelector, useDispatch } from "react-redux";
 import { showLoading, hideLoading } from "../redux/features/alertSlice";
-import { setUser } from "../redux/features/userSlice"; // Logic Best hai!
+import { setUser } from "../redux/features/userSlice";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
@@ -24,7 +24,7 @@ const NotificationPage = () => {
       dispatch(hideLoading());
       if (res.data.success) {
         message.success(res.data.message);
-        dispatch(setUser(res.data.data)); // Page reload nahi hoga, smooth update!
+        dispatch(setUser(res.data.data)); 
       } else {
         message.error(res.data.message);
       }
@@ -58,7 +58,7 @@ const NotificationPage = () => {
     }
   };
 
-  // 3. TABS CONFIGURATION (Premium UI + New Logic)
+  // 3. TABS CONFIGURATION (Clickable issue fixed ✅)
   const items = [
     {
       key: "0",
@@ -80,12 +80,12 @@ const NotificationPage = () => {
              user?.notification?.map((notificationMgs, index) => (
             <div 
                 className="card shadow-sm mb-2" 
-                style={{ cursor: "pointer", borderLeft: "5px solid #1890ff" }} 
+                style={{ borderLeft: "5px solid #1890ff" }} // 🟢 Cursor pointer hata diya
                 key={index}
             >
               <div
                 className="card-body"
-                onClick={() => navigate(notificationMgs.onClickPath)} // .data hata diya ✅
+                // 🟢 onClick navigate hata diya, ab ye clickable nahi hai
               >
                 <i className="fa-solid fa-bell text-primary me-2"></i>
                 {notificationMgs.message}
@@ -112,12 +112,12 @@ const NotificationPage = () => {
           {user?.seennotification?.map((notificationMgs, index) => (
             <div 
                 className="card shadow-sm mb-2" 
-                style={{ cursor: "pointer", backgroundColor: "#f8f9fa" }} 
+                style={{ backgroundColor: "#f8f9fa" }} // 🟢 Cursor pointer hata diya
                 key={index}
             >
               <div
                 className="card-body"
-                onClick={() => navigate(notificationMgs.onClickPath)} // .data hata diya ✅
+                // 🟢 onClick navigate hata diya
               >
                 <i className="fa-solid fa-envelope-open text-secondary me-2"></i>
                 {notificationMgs.message}

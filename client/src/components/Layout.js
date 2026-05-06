@@ -1,6 +1,6 @@
 import React from "react";
 import "../styles/LayoutStyles.css";
-import { adminMenu, userMenu } from "../Data/data";
+import { adminMenu, userMenu, doctorMenu } from "../Data/data";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { Badge, message } from "antd";
@@ -10,33 +10,12 @@ const Layout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // logout function
   const handleLogout = () => {
     localStorage.clear();
     message.success("logout successfully");
     navigate("/login");
   };
 
-  // doctor menu logic
-  const doctorMenu = [
-    {
-      name: "Home",
-      path: "/dashboard",
-      icon: "fa-solid fa-house",
-    },
-    {
-      name: "Appointments",
-      path: "/doctor-appointments",
-      icon: "fa-solid fa-list",
-    },
-    {
-      name: "Profile",
-      path: `/doctor/profile/${user?._id}`,
-      icon: "fa-solid fa-user-pen",
-    },
-  ];
-
-  // rendering menu list
   const SidebarMenu = user?.isAdmin
     ? adminMenu
     : user?.isDoctor
@@ -47,22 +26,22 @@ const Layout = ({ children }) => {
     <>
       <div className="main">
         <div className="layout">
-          {/* sidebar section */}
           <div className="sidebar">
             <div className="logo">
               <h6>HealthEase</h6>
               <hr />
             </div>
             <div className="menu">
-              {SidebarMenu.map((menu) => {
-                const isActive = location.pathname === menu.path;
+              {SidebarMenu?.map((menu) => {
+                const routePath = menu.path === "/doctor/profile" ? `/doctor/profile/${user?._id}` : menu.path;
+                const isActive = location.pathname === routePath;
                 return (
                   <div
                     key={menu.name}
                     className={`menu-item ${isActive && "active"}`}
                   >
                     <i className={menu.icon}></i>
-                    <Link to={menu.path}>{menu.name}</Link>
+                    <Link to={routePath}>{menu.name}</Link>
                   </div>
                 );
               })}
@@ -73,7 +52,6 @@ const Layout = ({ children }) => {
             </div>
           </div>
 
-          {/* main content section */}
           <div className="content">
             <div className="header">
               <div className="header-content" style={{ cursor: "pointer" }}>
@@ -86,7 +64,9 @@ const Layout = ({ children }) => {
                   <i className="fa-solid fa-bell"></i>
                 </Badge>
 
-                <Link to="/profile">{user?.name}</Link>
+                <Link to={user?.isDoctor ? `/doctor/profile/${user?._id}` : "/profile"}>
+                  {user?.name}
+                </Link>
               </div>
             </div>
             <div className="body">{children}</div>

@@ -1,8 +1,7 @@
-// user menu (patient and normal user)
 export const userMenu = [
   {
     name: "Home",
-    path: "/dashboard", // path ko / se badal kar /dashboard kar diya
+    path: "/dashboard",
     icon: "fa-solid fa-house-medical",
   },
   {
@@ -27,11 +26,10 @@ export const userMenu = [
   },
 ];
 
-// admin menu (system admin)
 export const adminMenu = [
   {
     name: "Home", 
-    path: "/dashboard", // path ko / se badal kar /dashboard kar diya
+    path: "/dashboard", 
     icon: "fa-solid fa-chart-pie", 
   },
   {
@@ -43,5 +41,28 @@ export const adminMenu = [
     name: "Manage Users",
     path: "/admin/users",
     icon: "fa-solid fa-hospital-user",
+  },
+];
+
+export const doctorMenu = [
+  {
+    name: "Home",
+    path: "/dashboard",
+    icon: "fa-solid fa-house-medical",
+  },
+  {
+    name: "Manage Appointments",
+    path: "/doctor-appointments", 
+    icon: "fa-solid fa-calendar-check",
+  },
+  {
+    name: "AI Doctor",
+    path: "/chatbot",
+    icon: "fa-solid fa-user-doctor"
+  },
+  {
+    name: "My Profile",
+    path: "/doctor/profile",
+    icon: "fa-solid fa-user-gear",
   },
 ];

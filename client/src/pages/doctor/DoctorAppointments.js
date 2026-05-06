@@ -88,7 +88,8 @@ const DoctorAppointments = () => {
       dataIndex: "actions",
       render: (text, record) => (
         <div className="d-flex">
-          {record.status === "pending" && (
+          {/* 🟢 MINIMAL FIX: Added ternary operator for Action Taken state */}
+          {record.status === "pending" ? (
             <div className="d-flex">
               <button
                 className="btn btn-success btn-sm me-2"
@@ -103,6 +104,8 @@ const DoctorAppointments = () => {
                 Reject
               </button>
             </div>
+          ) : (
+            <button className="btn btn-secondary btn-sm" disabled>Action Taken</button>
           )}
         </div>
       ),
@@ -113,7 +116,12 @@ const DoctorAppointments = () => {
     <Layout>
       <div className="p-3">
         <h2 className="text-center mb-3" style={{color: '#2c3e50'}}>Doctor Appointments Panel</h2>
-        <Table columns={columns} dataSource={appointments} />
+        {/* 🟢 MINIMAL FIX: Added rowKey so React properly refreshes the table row on button click */}
+        <Table 
+          columns={columns} 
+          dataSource={appointments} 
+          rowKey={(record) => record._id} 
+        />
       </div>
     </Layout>
   );
