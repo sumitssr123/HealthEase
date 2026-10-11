@@ -37,7 +37,7 @@ async def apply_doctor(
         elif existing.get("status") == "pending":
             return {"success": False, "message": "Your doctor application is already under review"}
 
-    doctor_data = body.dict()
+    doctor_data = body.model_dump()
     doctor_data.update({
         "userId": user_id,
         "status": "pending",
