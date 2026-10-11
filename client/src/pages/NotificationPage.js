@@ -1,129 +1,136 @@
-import React from "react";
+import React, { useState } from "react";
 import Layout from "../components/Layout";
-import { message, Tabs } from "antd";
-import { useSelector, useDispatch } from "react-redux";
-import { showLoading, hideLoading } from "../redux/features/alertSlice";
-import { setUser } from "../redux/features/userSlice";
-import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import { message, Tabs, Button, Empty } from "antd";
+import { useAuth } from "../context/AuthContext";
+import API from "../api";
 
 const NotificationPage = () => {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const { user } = useSelector((state) => state.user);
+  const { user, setUser } = useAuth();
+  const [loading, setLoading] = useState(false);
 
   // 1. MARK ALL READ
   const handleMarkAllRead = async () => {
     try {
-      dispatch(showLoading());
-      const res = await axios.post(
-        "/api/v1/user/get-all-notification",
-        { userId: user._id },
-        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-      );
-      dispatch(hideLoading());
+      setLoading(true);
+      const res = await API.post("/api/v1/user/get-all-notification", {
+        userId: user?._id || user?.id,
+      });
+      setLoading(false);
       if (res.data.success) {
         message.success(res.data.message);
-        dispatch(setUser(res.data.data)); 
+        if (res.data.data) {
+          setUser(res.data.data);
+        }
       } else {
         message.error(res.data.message);
       }
     } catch (error) {
-      dispatch(hideLoading());
-      console.log(error);
-      message.error("Something went wrong");
+      setLoading(false);
+      console.error(error);
+      message.error(error.response?.data?.message || "Failed to mark notifications as read");
     }
   };
 
   // 2. DELETE ALL READ
   const handleDeleteAllRead = async () => {
     try {
-      dispatch(showLoading());
-      const res = await axios.post(
-        "/api/v1/user/delete-all-notification",
-        { userId: user._id },
-        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-      );
-      dispatch(hideLoading());
+      setLoading(true);
+      const res = await API.post("/api/v1/user/delete-all-notification", {
+        userId: user?._id || user?.id,
+      });
+      setLoading(false);
       if (res.data.success) {
         message.success(res.data.message);
-        dispatch(setUser(res.data.data));
+        if (res.data.data) {
+          setUser(res.data.data);
+        }
       } else {
         message.error(res.data.message);
       }
     } catch (error) {
-      dispatch(hideLoading());
-      console.log(error);
-      message.error("Something Went Wrong In Delete Notifications");
+      setLoading(false);
+      console.error(error);
+      message.error(error.response?.data?.message || "Failed to delete read notifications");
     }
   };
 
-  // 3. TABS CONFIGURATION (Clickable issue fixed ✅)
+  const unreadList = user?.notification || [];
+  const readList = user?.seennotification || [];
+
+  // 3. TABS CONFIGURATION
   const items = [
     {
       key: "0",
-      label: "Unread",
+      label: `Unread (${unreadList.length})`,
       children: (
         <>
-          <div className="d-flex justify-content-end">
-            <h4 
-              className="p-2 text-primary" 
-              onClick={handleMarkAllRead} 
-              style={{ cursor: "pointer", fontSize: '16px', textDecoration: 'underline' }}
-            >
-              Mark All Read <i className="fa-solid fa-check-double ms-1"></i>
-            </h4>
-          </div>
-          {user?.notification?.length === 0 ? (
-             <div className="text-center mt-3 text-muted">No New Notifications</div>
-          ) : (
-             user?.notification?.map((notificationMgs, index) => (
-            <div 
-                className="card shadow-sm mb-2" 
-                style={{ borderLeft: "5px solid #1890ff" }} // 🟢 Cursor pointer hata diya
-                key={index}
-            >
-              <div
-                className="card-body"
-                // 🟢 onClick navigate hata diya, ab ye clickable nahi hai
+          <div className="d-flex justify-content-end mb-2">
+            {unreadList.length > 0 && (
+              <Button
+                type="link"
+                className="text-primary p-0"
+                onClick={handleMarkAllRead}
+                loading={loading}
+                style={{ fontSize: "15px", fontWeight: "600" }}
               >
-                <i className="fa-solid fa-bell text-primary me-2"></i>
-                {notificationMgs.message}
+                Mark All Read <i className="fa-solid fa-check-double ms-1"></i>
+              </Button>
+            )}
+          </div>
+          {unreadList.length === 0 ? (
+            <Empty description="No New Notifications" className="my-5" />
+          ) : (
+            unreadList.map((notificationMgs, index) => (
+              <div 
+                className="card shadow-sm mb-2" 
+                style={{ borderLeft: "5px solid #1890ff", borderRadius: "8px" }}
+                key={index}
+              >
+                <div className="card-body py-3">
+                  <i className="fa-solid fa-bell text-primary me-2"></i>
+                  {notificationMgs.message || notificationMgs}
+                </div>
               </div>
-            </div>
-          )))}
+            ))
+          )}
         </>
       ),
     },
     {
       key: "1",
-      label: "Read",
+      label: `Read (${readList.length})`,
       children: (
         <>
-          <div className="d-flex justify-content-end">
-            <h4
-              className="p-2 text-danger"
-              style={{ cursor: "pointer", fontSize: '16px', textDecoration: 'underline' }}
-              onClick={handleDeleteAllRead}
-            >
-              Delete All Read <i className="fa-solid fa-trash ms-1"></i>
-            </h4>
-          </div>
-          {user?.seennotification?.map((notificationMgs, index) => (
-            <div 
-                className="card shadow-sm mb-2" 
-                style={{ backgroundColor: "#f8f9fa" }} // 🟢 Cursor pointer hata diya
-                key={index}
-            >
-              <div
-                className="card-body"
-                // 🟢 onClick navigate hata diya
+          <div className="d-flex justify-content-end mb-2">
+            {readList.length > 0 && (
+              <Button
+                type="link"
+                danger
+                className="p-0"
+                onClick={handleDeleteAllRead}
+                loading={loading}
+                style={{ fontSize: "15px", fontWeight: "600" }}
               >
-                <i className="fa-solid fa-envelope-open text-secondary me-2"></i>
-                {notificationMgs.message}
+                Delete All Read <i className="fa-solid fa-trash ms-1"></i>
+              </Button>
+            )}
+          </div>
+          {readList.length === 0 ? (
+            <Empty description="No Read Notifications" className="my-5" />
+          ) : (
+            readList.map((notificationMgs, index) => (
+              <div 
+                className="card shadow-sm mb-2" 
+                style={{ backgroundColor: "#f8f9fa", borderRadius: "8px" }}
+                key={index}
+              >
+                <div className="card-body py-3">
+                  <i className="fa-solid fa-envelope-open text-secondary me-2"></i>
+                  {notificationMgs.message || notificationMgs}
+                </div>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </>
       ),
     },
@@ -131,9 +138,14 @@ const NotificationPage = () => {
 
   return (
     <Layout>
-      <div className="p-3">
-        <h3 className="text-center text-secondary">Notification Center</h3>
-        <Tabs defaultActiveKey="0" items={items} className="mt-3" />
+      <div className="container py-4" style={{ maxWidth: "800px" }}>
+        <div className="d-flex align-items-center mb-3">
+          <i className="fa-solid fa-bell text-primary fs-3 me-2"></i>
+          <h3 className="m-0" style={{ color: "#2c3e50", fontWeight: "bold" }}>Notification Center</h3>
+        </div>
+        <div className="card p-4 shadow-sm border-0" style={{ borderRadius: "12px" }}>
+          <Tabs defaultActiveKey="0" items={items} />
+        </div>
       </div>
     </Layout>
   );

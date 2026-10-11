@@ -1,39 +1,31 @@
-import React from "react";
+import React, { useState } from "react";
 import Layout from "../components/Layout";
-import { Form, Input, message, Button, Card } from "antd";
-import { useSelector, useDispatch } from "react-redux";
-import axios from "axios";
-import { showLoading, hideLoading } from "../redux/features/alertSlice";
+import { Form, Input, message, Button, Card, Spin } from "antd";
+import { useAuth } from "../context/AuthContext";
+import API from "../api";
 
 const UserProfile = () => {
-  const { user } = useSelector((state) => state.user);
-  const dispatch = useDispatch();
+  const { user, setUser } = useAuth();
+  const [loading, setLoading] = useState(false);
 
   // Form Submit Handle
   const handleFinish = async (values) => {
     try {
-      dispatch(showLoading());
-      const res = await axios.post(
-        "/api/v1/user/update-profile",
-        { ...values, userId: user._id },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
-      dispatch(hideLoading());
+      setLoading(true);
+      const res = await API.post("/api/v1/user/update-profile", values);
+      setLoading(false);
       if (res.data.success) {
         message.success(res.data.message);
-        // Refresh page to show updated name
-        window.location.reload(); 
+        if (res.data.data) {
+          setUser(res.data.data);
+        }
       } else {
         message.error(res.data.message);
       }
     } catch (error) {
-      dispatch(hideLoading());
-      console.log(error);
-      message.error("Something went wrong");
+      setLoading(false);
+      console.error(error);
+      message.error(error.response?.data?.message || "Something went wrong updating profile");
     }
   };
 
@@ -57,43 +49,50 @@ const UserProfile = () => {
             <p className="text-muted">Manage your personal information</p>
           </div>
 
-          {user && (
-            <Form
-              layout="vertical"
-              onFinish={handleFinish}
-              initialValues={{
-                name: user?.name,
-                email: user?.email,
-              }}
-            >
-              <Form.Item
-                label={<span style={{ fontWeight: "bold" }}>Full Name</span>}
-                name="name"
-                rules={[{ required: true, message: "Please enter your name" }]}
+          {loading ? (
+            <div className="text-center p-4">
+              <Spin size="large" />
+            </div>
+          ) : (
+            user && (
+              <Form
+                layout="vertical"
+                onFinish={handleFinish}
+                initialValues={{
+                  name: user?.name,
+                  email: user?.email,
+                }}
               >
-                <Input size="large" prefix={<i className="fa-regular fa-user me-2 text-muted"></i>} />
-              </Form.Item>
-
-              <Form.Item
-                label={<span style={{ fontWeight: "bold" }}>Email Address</span>}
-                name="email"
-                rules={[{ required: true, message: "Please enter your email" }]}
-              >
-                <Input size="large" prefix={<i className="fa-regular fa-envelope me-2 text-muted"></i>} />
-              </Form.Item>
-
-              <div className="d-flex justify-content-end mt-4">
-                <Button 
-                  type="primary" 
-                  htmlType="submit" 
-                  size="large"
-                  className="w-100 shadow-sm"
-                  style={{ borderRadius: "8px", fontWeight: "bold" }}
+                <Form.Item
+                  label={<span style={{ fontWeight: "bold" }}>Full Name</span>}
+                  name="name"
+                  rules={[{ required: true, message: "Please enter your name" }]}
                 >
-                  Update Profile <i className="fa-solid fa-floppy-disk ms-2"></i>
-                </Button>
-              </div>
-            </Form>
+                  <Input size="large" prefix={<i className="fa-regular fa-user me-2 text-muted"></i>} />
+                </Form.Item>
+
+                <Form.Item
+                  label={<span style={{ fontWeight: "bold" }}>Email Address</span>}
+                  name="email"
+                  rules={[{ required: true, message: "Please enter your email" }]}
+                >
+                  <Input size="large" prefix={<i className="fa-regular fa-envelope me-2 text-muted"></i>} />
+                </Form.Item>
+
+                <div className="d-flex justify-content-end mt-4">
+                  <Button 
+                    type="primary" 
+                    htmlType="submit" 
+                    size="large"
+                    className="w-100 shadow-sm"
+                    loading={loading}
+                    style={{ borderRadius: "8px", fontWeight: "bold" }}
+                  >
+                    Update Profile <i className="fa-solid fa-floppy-disk ms-2"></i>
+                  </Button>
+                </div>
+              </Form>
+            )
           )}
         </Card>
       </div>

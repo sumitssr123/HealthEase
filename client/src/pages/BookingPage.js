@@ -1,228 +1,249 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../components/Layout";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
-// row aur col import kiya hai layout ko do hisso mein baatne ke liye (left form, right map)
-import { DatePicker, message, TimePicker, Card, Divider, Row, Col } from "antd";
+import API from "../api";
+import { DatePicker, message, TimePicker, Card, Divider, Row, Col, Spin, Button } from "antd";
 import moment from "moment";
-import { useDispatch, useSelector } from "react-redux";
-import { showLoading, hideLoading } from "../redux/features/alertSlice";
+import { useAuth } from "../context/AuthContext";
 
 const BookingPage = () => {
-  const { user } = useSelector((state) => state.user);
+  const { user } = useAuth();
   const params = useParams();
   const navigate = useNavigate();
-  const dispatch = useDispatch();
 
-  const [doctors, setDoctors] = useState([]);
+  const [doctor, setDoctor] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [checkingAvail, setCheckingAvail] = useState(false);
+  const [bookingLoading, setBookingLoading] = useState(false);
+
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [isAvailable, setIsAvailable] = useState(false);
 
-  // doctor ki details database se lane ka function
-  const getUserData = async () => {
+  // Fetch doctor data by ID
+  const getDoctorData = useCallback(async () => {
     try {
-      const res = await axios.post(
-        "/api/v1/doctor/getDoctorById",
-        { doctorId: params.doctorId },
-        { headers: { Authorization: "Bearer " + localStorage.getItem("token") } }
-      );
-      if (res.data.success) {
-        setDoctors(res.data.data);
+      setLoading(true);
+      const res = await API.post("/api/v1/doctor/getDoctorById", {
+        doctorId: params.doctorId,
+      });
+      if (res.data && res.data.success) {
+        setDoctor(res.data.data);
+      } else {
+        message.error("Could not load doctor details");
       }
     } catch (error) {
-      console.log(error);
+      console.error(error);
+      message.error("Error loading doctor profile");
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [params.doctorId]);
 
-  // page load hote hi doctor ka data fetch karega
   useEffect(() => {
-    getUserData();
-    // eslint-disable-next-line
-  }, []);
+    getDoctorData();
+  }, [getDoctorData]);
 
-  // check karega ki us din aur time par doctor free hai ya nahi
+  // Check slot availability
   const handleAvailability = async () => {
+    if (!date || !time) {
+      return message.warning("Please select both a date and time first");
+    }
     try {
-      if (!date || !time) {
-        return message.warning("please select date and time first");
-      }
-      dispatch(showLoading());
-      const res = await axios.post(
-        "/api/v1/user/booking-availbility",
-        { doctorId: params.doctorId, date, time },
-        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-      );
-      dispatch(hideLoading());
-      if (res.data.success) {
+      setCheckingAvail(true);
+      const res = await API.post("/api/v1/user/booking-availbility", {
+        doctorId: params.doctorId,
+        date,
+        time,
+      });
+      setCheckingAvail(false);
+
+      if (res.data && res.data.success) {
         setIsAvailable(true);
-        message.success(res.data.message);
+        message.success(res.data.message || "Slot is available! You can book now.");
       } else {
         setIsAvailable(false);
-        message.error(res.data.message);
+        message.error(res.data.message || "Doctor is not available at this time");
       }
     } catch (error) {
-      dispatch(hideLoading());
-      console.log(error);
-      message.error("error checking availability");
+      setCheckingAvail(false);
+      console.error(error);
+      message.error("Error checking availability");
     }
   };
 
-  // jab free ho tab final appointment book karne ka function
+  // Immediate confirmed booking
   const handleBooking = async () => {
+    if (!date || !time) {
+      return message.warning("Please select date and time");
+    }
     try {
-      if (!date || !time) {
-        return message.warning("please select date and time");
-      }
-      dispatch(showLoading());
-      const res = await axios.post(
-        "/api/v1/user/book-appointment",
-        {
-          doctorId: params.doctorId,
-          userId: user._id,
-          doctorInfo: doctors,
-          userInfo: user,
-          date: date,
-          time: time,
-        },
-        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
-      );
-      dispatch(hideLoading());
-      if (res.data.success) {
-        message.success("appointment booked successfully!");
-        navigate("/appointments"); 
+      setBookingLoading(true);
+      const res = await API.post("/api/v1/user/book-appointment", {
+        doctorId: params.doctorId,
+        userId: user?._id || user?.id,
+        doctorInfo: doctor,
+        userInfo: user,
+        date: date,
+        time: time,
+      });
+      setBookingLoading(false);
+
+      if (res.data && res.data.success) {
+        message.success("Appointment booked and confirmed successfully!");
+        navigate("/appointments");
+      } else {
+        // Slot conflict or other message
+        message.error(res.data.message || "Could not complete booking");
       }
     } catch (error) {
-      dispatch(hideLoading());
-      console.log(error);
-      message.error("error while booking appointment");
+      setBookingLoading(false);
+      console.error(error);
+      const detail = error.response?.data?.detail || "Error while booking appointment";
+      message.error(detail);
     }
   };
 
   return (
     <Layout>
       <div className="container mt-4 mb-5">
-        <h2 className="text-center mb-5" style={{ color: "#2c3e50", fontWeight: "bold" }}>
-          Book Your Appointment
+        <h2 className="text-center mb-4" style={{ color: "#2c3e50", fontWeight: "bold" }}>
+          <i className="fa-solid fa-calendar-check text-primary me-2"></i> Book Doctor Appointment
         </h2>
-        
-        {doctors && (
-          /* row ka use karke screen ko split kiya hai. gutter 24 dono ke beech ka gap hai */
-          <Row gutter={24}>
-            
-            {/* left side: doctor ki details aur booking form */}
-            {/* xs 24 matlab mobile mein full width, md 12 matlab laptop mein half width */}
+
+        {loading ? (
+          <div className="d-flex justify-content-center p-5">
+            <Spin size="large" />
+          </div>
+        ) : doctor ? (
+          <Row gutter={[24, 24]}>
+            {/* Left: Doctor Details & Booking Form */}
             <Col xs={24} md={12}>
               <Card
                 className="shadow-sm bg-white rounded h-100"
                 style={{ borderRadius: "15px", border: "1px solid #e8e8e8" }}
               >
-                <h3 className="text-center text-dark">
-                  <i className="fa-solid fa-user-doctor me-2"></i>
-                  Dr. {doctors.firstName} {doctors.lastName}
-                </h3>
-                
-                <p className="text-center text-muted mt-2">
-                  <i className="fa-solid fa-location-dot text-danger me-2"></i> 
-                  {doctors.address}
-                </p>
+                <div className="text-center mb-3">
+                  <div
+                    className="bg-light rounded-circle mx-auto d-flex align-items-center justify-content-center mb-2"
+                    style={{ width: "70px", height: "70px" }}
+                  >
+                    <i className="fa-solid fa-user-doctor text-primary" style={{ fontSize: "32px" }}></i>
+                  </div>
+                  <h3 className="text-dark mb-1">
+                    Dr. {doctor.firstName} {doctor.lastName}
+                  </h3>
+                  <span className="badge bg-primary-subtle text-primary fs-6 mb-2">
+                    {doctor.specialization}
+                  </span>
+                  <p className="text-muted" style={{ fontSize: "14px" }}>
+                    <i className="fa-solid fa-location-dot text-danger me-2"></i>
+                    {doctor.address}
+                  </p>
+                </div>
 
                 <Divider />
-                
+
                 <div className="d-flex justify-content-between mb-3 px-3">
-                  <span className="text-muted"><i className="fa-solid fa-indian-rupee-sign me-2"></i> Consultation Fees:</span>
-                  <b className="text-success fs-5">Rs. {doctors.feesPerCunsultation}</b>
+                  <span className="text-muted">
+                    <i className="fa-solid fa-indian-rupee-sign me-2"></i> Consultation Fee:
+                  </span>
+                  <b className="text-success fs-5">Rs. {doctor.feesPerCunsultation}</b>
                 </div>
-                
+
                 <div className="d-flex justify-content-between mb-3 px-3">
-                  <span className="text-muted"><i className="fa-solid fa-clock me-2"></i> Timings:</span>
+                  <span className="text-muted">
+                    <i className="fa-solid fa-clock me-2"></i> Available Timings:
+                  </span>
                   <b>
-                    {doctors.timings && moment(doctors.timings[0]).format("hh:mm A")} - {doctors.timings && moment(doctors.timings[1]).format("hh:mm A")}
+                    {doctor.timings && Array.isArray(doctor.timings)
+                      ? `${doctor.timings[0]} - ${doctor.timings[1]}`
+                      : "09:00 - 18:00"}
                   </b>
                 </div>
-                
+
                 <Divider dashed />
 
-                <h5 className="text-center text-secondary mb-3">Select Date & Time</h5>
-                <div className="d-flex flex-column align-items-center px-3">
-                  
-                  {/* date select karne ka input */}
+                <h5 className="text-center text-secondary mb-3">Select Date & Time Slot</h5>
+                <div className="px-3">
                   <DatePicker
                     className="w-100 mb-3"
                     size="large"
                     format="DD-MM-YYYY"
-                    onChange={(value, dateString) => {
+                    onChange={(val, dateString) => {
                       setDate(dateString);
-                      setIsAvailable(false); // date change par button hide ho jayega
+                      setIsAvailable(false);
                     }}
                     placeholder="Select Appointment Date"
                   />
-                  
-                  {/* time select karne ka input */}
+
                   <TimePicker
                     className="w-100 mb-3"
                     size="large"
                     format="HH:mm"
-                    onChange={(value, timeString) => {
+                    onChange={(val, timeString) => {
                       setTime(timeString);
-                      setIsAvailable(false); // time change par button hide ho jayega
+                      setIsAvailable(false);
                     }}
                     placeholder="Select Appointment Time"
                   />
 
-                  <button 
-                    className="btn btn-primary btn-lg w-100 mt-2 shadow-sm" 
+                  <Button
+                    type="primary"
+                    size="large"
+                    className="w-100 mt-2 shadow-sm"
+                    loading={checkingAvail}
                     onClick={handleAvailability}
                     style={{ borderRadius: "8px", fontWeight: "bold" }}
                   >
                     Check Availability <i className="fa-solid fa-magnifying-glass ms-2"></i>
-                  </button>
+                  </Button>
 
-                  {/* agar available hai tabhi ye confirm wala button dikhega */}
                   {isAvailable && (
-                    <button 
-                      className="btn btn-success btn-lg w-100 mt-3 shadow-sm" 
+                    <Button
+                      type="primary"
+                      size="large"
+                      className="w-100 mt-3 shadow-sm bg-success border-success"
+                      loading={bookingLoading}
                       onClick={handleBooking}
                       style={{ borderRadius: "8px", fontWeight: "bold" }}
                     >
-                      Confirm Booking <i className="fa-solid fa-calendar-check ms-2"></i>
-                    </button>
+                      Confirm Booking Immediately <i className="fa-solid fa-check ms-2"></i>
+                    </Button>
                   )}
                 </div>
               </Card>
             </Col>
 
-            {/* right side: google maps integration */}
+            {/* Right: Embedded Clinic Google Map */}
             <Col xs={24} md={12}>
               <Card
                 className="shadow-sm rounded h-100 p-0 overflow-hidden"
                 style={{ borderRadius: "15px", border: "1px solid #e8e8e8" }}
                 bodyStyle={{ padding: 0, height: "100%" }}
               >
-                {/* agar doctor ka address database me hai toh map us address par point karega */}
-                {doctors.address ? (
+                {doctor.address ? (
                   <iframe
                     title="clinic map"
                     width="100%"
                     height="100%"
-                    style={{ minHeight: "450px", border: "none" }}
+                    style={{ minHeight: "480px", border: "none" }}
                     loading="lazy"
                     allowFullScreen
                     referrerPolicy="no-referrer-when-downgrade"
-                    // encodeuricomponent address me extra spaces ko safe format me change karta hai
-                    src={`https://maps.google.com/maps?q=${encodeURIComponent(doctors.address)}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
-                  ></iframe>
+                    src={`https://maps.google.com/maps?q=${encodeURIComponent(doctor.address)}&t=&z=14&ie=UTF8&iwloc=&output=embed`}
+                  />
                 ) : (
-                  // jab tak load nahi hota tab tak ye placeholder dikhega
-                  <div className="d-flex flex-column justify-content-center align-items-center" style={{ minHeight: "450px", backgroundColor: "#f8f9fa" }}>
+                  <div className="d-flex flex-column justify-content-center align-items-center" style={{ minHeight: "480px", backgroundColor: "#f8f9fa" }}>
                     <i className="fa-solid fa-map-location-dot text-muted mb-3" style={{ fontSize: "50px" }}></i>
-                    <h5 className="text-muted">loading clinic location...</h5>
+                    <h5 className="text-muted">Loading Clinic Location Map...</h5>
                   </div>
                 )}
               </Card>
             </Col>
-
           </Row>
+        ) : (
+          <div className="text-center p-5 text-muted">Doctor details not found.</div>
         )}
       </div>
     </Layout>

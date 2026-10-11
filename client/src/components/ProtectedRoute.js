@@ -1,51 +1,23 @@
-import React, { useEffect } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
-import axios from "axios";
-import { useSelector, useDispatch } from "react-redux";
-import { hideLoading, showLoading } from "../redux/features/alertSlice";
-import { setUser } from "../redux/features/userSlice";
+import React from "react";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { Spin } from "antd";
 
 export default function ProtectedRoute({ children }) {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const { user } = useSelector((state) => state.user);
+  const { user, loading } = useAuth();
+  const token = localStorage.getItem("token");
 
-  useEffect(() => {
-    const getUser = async () => {
-      try {
-        dispatch(showLoading());
-        const res = await axios.post(
-          "/api/v1/user/getUserData",
-          { token: localStorage.getItem("token") },
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          }
-        );
-        dispatch(hideLoading());
-        if (res.data.success) {
-          dispatch(setUser(res.data.data));
-        } else {
-          localStorage.clear();
-          navigate("/login");
-        }
-      } catch (error) {
-        dispatch(hideLoading());
-        localStorage.clear();
-        console.log(error);
-        navigate("/login");
-      }
-    };
-
-    if (!user) {
-      getUser();
-    }
-  }, [user, dispatch, navigate]);
-
-  if (localStorage.getItem("token")) {
-    return children;
-  } else {
-    return <Navigate to="/login" />;
+  if (!token) {
+    return <Navigate to="/login" replace />;
   }
+
+  if (loading && !user) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ height: "100vh" }}>
+        <Spin size="large" tip="Loading HealthEase..." />
+      </div>
+    );
+  }
+
+  return children;
 }

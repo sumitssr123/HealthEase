@@ -2,17 +2,17 @@ import React from "react";
 import "../styles/LayoutStyles.css";
 import { adminMenu, userMenu, doctorMenu } from "../Data/data";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useAuth } from "../context/AuthContext";
 import { Badge, message } from "antd";
 
 const Layout = ({ children }) => {
-  const { user } = useSelector((state) => state.user);
+  const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.clear();
-    message.success("logout successfully");
+    logout();
+    message.success("Logged out successfully");
     navigate("/login");
   };
 
@@ -33,19 +33,19 @@ const Layout = ({ children }) => {
             </div>
             <div className="menu">
               {SidebarMenu?.map((menu) => {
-                const routePath = menu.path === "/doctor/profile" ? `/doctor/profile/${user?._id}` : menu.path;
+                const routePath = menu.path === "/doctor/profile" ? `/doctor/profile/${user?._id || user?.id}` : menu.path;
                 const isActive = location.pathname === routePath;
                 return (
                   <div
                     key={menu.name}
-                    className={`menu-item ${isActive && "active"}`}
+                    className={`menu-item ${isActive ? "active" : ""}`}
                   >
                     <i className={menu.icon}></i>
                     <Link to={routePath}>{menu.name}</Link>
                   </div>
                 );
               })}
-              <div className={`menu-item `} onClick={handleLogout}>
+              <div className="menu-item" onClick={handleLogout}>
                 <i className="fa-solid fa-right-from-bracket"></i>
                 <Link to="/login">Logout</Link>
               </div>
@@ -64,8 +64,8 @@ const Layout = ({ children }) => {
                   <i className="fa-solid fa-bell"></i>
                 </Badge>
 
-                <Link to={user?.isDoctor ? `/doctor/profile/${user?._id}` : "/profile"}>
-                  {user?.name}
+                <Link to={user?.isDoctor ? `/doctor/profile/${user?._id || user?.id}` : "/profile"}>
+                  {user?.name || "User"}
                 </Link>
               </div>
             </div>

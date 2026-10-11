@@ -5,6 +5,11 @@ export const userMenu = [
     icon: "fa-solid fa-house-medical",
   },
   {
+    name: "Hospitals & Maps",
+    path: "/hospitals",
+    icon: "fa-solid fa-hospital",
+  },
+  {
     name: "My Appointments",
     path: "/appointments",
     icon: "fa-solid fa-calendar-check",
@@ -17,7 +22,7 @@ export const userMenu = [
   {
     name: "AI Doctor",
     path: "/chatbot",
-    icon: "fa-solid fa-user-doctor"
+    icon: "fa-solid fa-robot",
   },
   {
     name: "My Profile",
@@ -31,6 +36,11 @@ export const adminMenu = [
     name: "Home", 
     path: "/dashboard", 
     icon: "fa-solid fa-chart-pie", 
+  },
+  {
+    name: "Hospitals & Maps",
+    path: "/hospitals",
+    icon: "fa-solid fa-hospital",
   },
   {
     name: "Manage Doctors",
@@ -51,6 +61,11 @@ export const doctorMenu = [
     icon: "fa-solid fa-house-medical",
   },
   {
+    name: "Hospitals & Maps",
+    path: "/hospitals",
+    icon: "fa-solid fa-hospital",
+  },
+  {
     name: "Manage Appointments",
     path: "/doctor-appointments", 
     icon: "fa-solid fa-calendar-check",
@@ -58,7 +73,7 @@ export const doctorMenu = [
   {
     name: "AI Doctor",
     path: "/chatbot",
-    icon: "fa-solid fa-user-doctor"
+    icon: "fa-solid fa-robot",
   },
   {
     name: "My Profile",

@@ -1,59 +1,74 @@
-import React from "react";
-import { Form, Input, message } from "antd";
-import { useDispatch } from "react-redux";
-import { showLoading, hideLoading } from "../redux/features/alertSlice";
+import React, { useState } from "react";
+import { Form, Input, message, Button } from "antd";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import API from "../api";
+import { useAuth } from "../context/AuthContext";
 import "../styles/RegisterStyles.css";
 
 const Login = () => {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
+  const { login } = useAuth();
+  const [loading, setLoading] = useState(false);
 
-  // form submit handler
   const onFinishHandler = async (values) => {
     try {
-      dispatch(showLoading());
-      const res = await axios.post("/api/v1/user/login", values);
-      dispatch(hideLoading());
-      
-      if (res.data.success) {
-        // save token to local storage
-        localStorage.setItem("token", res.data.token);
-        
-        message.success("login successful");
-        
-        // redirect to dashboard instead of home
+      setLoading(true);
+      const res = await API.post("/api/v1/user/login", values);
+      setLoading(false);
+
+      if (res.data && res.data.success) {
+        login(res.data.token, res.data.data);
+        message.success("Login successful!");
         navigate("/dashboard");
-        
-        // reload page to update state
-        window.location.reload();
       } else {
-        message.error(res.data.message);
+        message.error(res.data.message || "Invalid credentials");
       }
     } catch (error) {
-      dispatch(hideLoading());
-      console.log(error);
-      message.error("something went wrong");
+      setLoading(false);
+      console.error(error);
+      const errMsg = error.response?.data?.detail || "Something went wrong during login";
+      message.error(errMsg);
     }
   };
 
   return (
     <div className="form-container">
-      <Form layout="vertical" onFinish={onFinishHandler} className="register-form">
-        <h3 className="text-center">Login Form</h3>
-        <Form.Item label="Email" name="email">
-          <Input type="email" required />
+      <Form layout="vertical" onFinish={onFinishHandler} className="register-form shadow-lg">
+        <h3 className="text-center mb-4" style={{ fontWeight: "bold", color: "#2c3e50" }}>
+          <i className="fa-solid fa-hospital-user text-primary me-2"></i> HealthEase Login
+        </h3>
+        <Form.Item
+          label="Email Address"
+          name="email"
+          rules={[{ required: true, message: "Please enter your email" }]}
+        >
+          <Input type="email" placeholder="user@example.com" size="large" />
         </Form.Item>
-        <Form.Item label="Password" name="password">
-          <Input type="password" required />
+        <Form.Item
+          label="Password"
+          name="password"
+          rules={[{ required: true, message: "Please enter your password" }]}
+        >
+          <Input.Password placeholder="Enter password" size="large" />
         </Form.Item>
-        <Link to="/register" className="m-2">
-          Not a user? Register here
-        </Link>
-        <button className="btn btn-primary" type="submit">
-          Login
-        </button>
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <Link to="/register" className="text-primary" style={{ fontSize: "14px" }}>
+            New patient? Register here
+          </Link>
+          <Link to="/" className="text-muted" style={{ fontSize: "14px" }}>
+            Back to Home
+          </Link>
+        </div>
+        <Button
+          type="primary"
+          htmlType="submit"
+          size="large"
+          className="w-100"
+          loading={loading}
+          style={{ borderRadius: "8px", fontWeight: "bold" }}
+        >
+          Sign In
+        </Button>
       </Form>
     </div>
   );
