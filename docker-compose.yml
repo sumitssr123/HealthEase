@@ -1,0 +1,135 @@
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # 1. Redis: In-Memory Caching (Doctor Directory, Hospitals) & Rate Limiting
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: healthease-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # 2. RabbitMQ: AMQP Message Broker for Async Event Notifications
+  # Includes Web Management Console on port 15672 (guest/guest)
+  # ---------------------------------------------------------------------------
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: healthease-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"     # AMQP protocol port
+      - "15672:15672"   # Web Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # 3. FastAPI Application Instance #1
+  # ---------------------------------------------------------------------------
+  backend_1:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: healthease-backend-1
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    environment:
+      - MONGODB_URI=${MONGODB_URI:-mongodb://host.docker.internal:27017}
+      - MONGODB_DB=${MONGODB_DB:-HealthEase}
+      - JWT_SECRET=${JWT_SECRET:-healthease_super_secure_jwt_secret_key_2026_xyz}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - FRONTEND_ORIGIN=${FRONTEND_ORIGIN:-http://localhost:3000,http://localhost:5173}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # 4. FastAPI Application Instance #2 (for Demonstrating Load Balancing)
+  # ---------------------------------------------------------------------------
+  backend_2:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: healthease-backend-2
+    restart: unless-stopped
+    ports:
+      - "8002:8000"
+    environment:
+      - MONGODB_URI=${MONGODB_URI:-mongodb://host.docker.internal:27017}
+      - MONGODB_DB=${MONGODB_DB:-HealthEase}
+      - JWT_SECRET=${JWT_SECRET:-healthease_super_secure_jwt_secret_key_2026_xyz}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+      - FRONTEND_ORIGIN=${FRONTEND_ORIGIN:-http://localhost:3000,http://localhost:5173}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # 5. RabbitMQ Notification Background Worker
+  # Consumes durable 'healthease.notifications' queue and persists to MongoDB
+  # ---------------------------------------------------------------------------
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: healthease-notification-worker
+    restart: unless-stopped
+    command: ["python", "worker.py"]
+    environment:
+      - MONGODB_URI=${MONGODB_URI:-mongodb://host.docker.internal:27017}
+      - MONGODB_DB=${MONGODB_DB:-HealthEase}
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # 6. Nginx Reverse Proxy & Round-Robin Load Balancer
+  # Receives external traffic on port 8080 and balances across backend_1 and backend_2
+  # ---------------------------------------------------------------------------
+  nginx_proxy:
+    image: nginx:alpine
+    container_name: healthease-loadbalancer
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend_1
+      - backend_2
+
+volumes:
+  redis_data:
+  rabbitmq_data:
