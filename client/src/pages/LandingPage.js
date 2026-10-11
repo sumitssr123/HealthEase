@@ -84,7 +84,7 @@ const LandingPage = () => {
 
       {/* footer details */}
       <div className="text-center mt-5 pt-5 pb-3 text-muted">
-        <p>© 2026 HealthEase Platform. Built with MERN Stack.</p>
+        <p>© 2026 HealthEase Platform. Built with FastAPI, React & MongoDB Atlas.</p>
       </div>
     </div>
   );

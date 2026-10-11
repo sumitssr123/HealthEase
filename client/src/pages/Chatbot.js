@@ -70,6 +70,7 @@ const Chatbot = () => {
         if (window.speechSynthesis) {
             window.speechSynthesis.onvoiceschanged = loadVoices;
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const speak = (text) => {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Layout from "../../components/Layout";
-import axios from "axios";
-import { Table, message } from "antd"; // 🟢 message import kiya alerts ke liye
+import API from "../../api";
+import { Table, message } from "antd";
 
 const Users = () => {
   const [users, setUsers] = useState([]);
@@ -9,37 +9,25 @@ const Users = () => {
   // getUsers function
   const getUsers = async () => {
     try {
-      const res = await axios.get("/api/v1/admin/getAllUsers", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
+      const res = await API.get("/api/v1/admin/getAllUsers");
       if (res.data.success) {
         setUsers(res.data.data);
       }
     } catch (error) {
-      console.log(error);
+      console.error(error);
     }
   };
 
-  // 🟢 BLOCK USER FUNCTION (FIXED: userId ki jagah blockId use kiya)
+  // BLOCK USER FUNCTION
   const handleBlock = async (record) => {
     try {
-      const res = await axios.post(
-        "/api/v1/admin/blockUser",
-        { blockId: record._id }, 
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
+      const res = await API.post("/api/v1/admin/blockUser", { blockId: record._id });
       if (res.data.success) {
         message.success(res.data.message);
-        window.location.reload(); 
+        getUsers();
       }
     } catch (error) {
-      message.error("Error while blocking user");
+      message.error("Error while updating user status");
     }
   };
 

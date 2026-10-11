@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../components/Layout";
 import API from "../api";
-import moment from "moment";
 import { Table, Tag, Button, Modal, message } from "antd";
 
 const Appointments = () => {

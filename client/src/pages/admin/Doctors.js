@@ -1,45 +1,37 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
-import axios from "axios";
-import { Table, message } from "antd"; // Message import karna zaroori hai
+import API from "../../api";
+import { Table, message } from "antd";
 
 const Doctors = () => {
   const [doctors, setDoctors] = useState([]);
 
-  // 1. Get Users Function
+  // 1. Get Doctors Function
   const getDoctors = async () => {
     try {
-      const res = await axios.get("/api/v1/admin/getAllDoctors", {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
+      const res = await API.get("/api/v1/admin/getAllDoctors");
       if (res.data.success) {
         setDoctors(res.data.data);
       }
     } catch (error) {
-      console.log(error);
+      console.error(error);
     }
   };
 
-  // 2. Handle Account Status (Approve Request)
+  // 2. Handle Account Status (Approve/Reject Request)
   const handleAccountStatus = async (record, status) => {
     try {
-      const res = await axios.post(
-        "/api/v1/admin/changeAccountStatus",
-        { doctorId: record._id, userId: record.userId, status: status },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
+      const res = await API.post("/api/v1/admin/changeAccountStatus", {
+        doctorId: record._id,
+        userId: record.userId,
+        status: status,
+      });
       if (res.data.success) {
         message.success(res.data.message);
-        window.location.reload(); // Page reload taaki status update dikhe
+        getDoctors();
       }
     } catch (error) {
-      message.error("Something Went Wrong");
+      message.error("Something Went Wrong Updating Status");
     }
   };
 

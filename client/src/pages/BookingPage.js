@@ -3,7 +3,6 @@ import Layout from "../components/Layout";
 import { useParams, useNavigate } from "react-router-dom";
 import API from "../api";
 import { DatePicker, message, TimePicker, Card, Divider, Row, Col, Spin, Button } from "antd";
-import moment from "moment";
 import { useAuth } from "../context/AuthContext";
 
 const BookingPage = () => {
