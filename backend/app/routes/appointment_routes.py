@@ -91,6 +91,19 @@ async def book_appointment(
 
     user_info = body.get("userInfo") or current_user
 
+    # Double Booking Prevention: Check active booking conflict
+    conflict = await db.appointments.find_one({
+        "doctorId": doctor_id,
+        "date": date,
+        "time": time,
+        "status": "booked",
+    })
+    if conflict:
+        return {
+            "success": False,
+            "message": "Slot Conflict: This appointment slot is already booked. Please select another time.",
+        }
+
     appointment_doc = {
         "userId": user_id,
         "doctorId": doctor_id,

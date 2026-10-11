@@ -8,7 +8,11 @@ from bson import ObjectId
 from app.config import settings
 from app.database import get_database
 
+import time
+
 logger = logging.getLogger("healthease.queue")
+_broker_last_failure_time = 0.0
+BROKER_RETRY_INTERVAL = 60.0  # seconds
 
 
 def publish_notification_event(
@@ -23,6 +27,13 @@ def publish_notification_event(
     If RabbitMQ is unavailable, gracefully fall back to direct synchronous persistence
     so appointments and application updates are NEVER interrupted by broker downtime.
     """
+    global _broker_last_failure_time
+    now = time.time()
+
+    # If broker failed recently, skip slow connection attempts and use fallback immediately
+    if now - _broker_last_failure_time < BROKER_RETRY_INTERVAL:
+        return False
+
     event_payload = {
         "event_type": event_type,
         "recipient_user_id": str(recipient_user_id),
@@ -35,7 +46,7 @@ def publish_notification_event(
     try:
         # 1. Attempt publishing to RabbitMQ
         params = pika.URLParameters(settings.RABBITMQ_URL)
-        params.socket_timeout = 1.5
+        params.socket_timeout = 0.5
         connection = pika.BlockingConnection(params)
         channel = connection.channel()
 
@@ -57,11 +68,11 @@ def publish_notification_event(
         return True
 
     except Exception as exc:
+        _broker_last_failure_time = time.time()
         logger.warning(
-            "RabbitMQ broker unavailable (%s). Executing graceful local fallback to direct DB notification persistence.",
+            "RabbitMQ broker unavailable (%s). Switched to fast direct DB notification persistence.",
             exc,
         )
-        # Direct fallback will be handled by the caller or scheduled task
         return False
 
 

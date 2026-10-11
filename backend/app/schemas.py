@@ -16,12 +16,12 @@ class ApiResponse(BaseModel):
 # ==========================================
 class UserRegisterRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
-    email: EmailStr
+    email: str = Field(..., min_length=3, max_length=120)
     password: str = Field(..., min_length=6, max_length=128)
 
 
 class UserLoginRequest(BaseModel):
-    email: EmailStr
+    email: str = Field(..., min_length=3)
     password: str
 
 
@@ -32,7 +32,7 @@ class LoginResponseData(BaseModel):
 
 class UserProfileUpdateRequest(BaseModel):
     name: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
 
 
 # ==========================================
@@ -42,7 +42,7 @@ class DoctorApplyRequest(BaseModel):
     firstName: str = Field(..., min_length=1)
     lastName: str = Field(..., min_length=1)
     phone: str = Field(..., min_length=5)
-    email: EmailStr
+    email: str = Field(..., min_length=3)
     website: Optional[str] = None
     address: str = Field(..., min_length=3)
     specialization: str = Field(..., min_length=2)
@@ -55,7 +55,7 @@ class DoctorProfileUpdateRequest(BaseModel):
     firstName: Optional[str] = None
     lastName: Optional[str] = None
     phone: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     website: Optional[str] = None
     address: Optional[str] = None
     specialization: Optional[str] = None

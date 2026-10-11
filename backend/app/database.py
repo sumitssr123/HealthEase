@@ -63,41 +63,51 @@ async def init_indexes() -> None:
         return
 
     db = db_state.db
+    # 1. Users collection
     try:
-        # 1. Users collection
-        await db.users.create_index([("email", ASCENDING)], unique=True, name="idx_users_email_unique")
-        await db.users.create_index([("isAdmin", ASCENDING)], name="idx_users_is_admin")
-        await db.users.create_index([("isDoctor", ASCENDING)], name="idx_users_is_doctor")
+        await db.users.create_index([("email", ASCENDING)], unique=True)
+        await db.users.create_index([("isAdmin", ASCENDING)])
+        await db.users.create_index([("isDoctor", ASCENDING)])
+    except Exception as e:
+        logger.debug("Users indexes: %s", e)
 
-        # 2. Doctors collection
-        await db.doctors.create_index([("userId", ASCENDING)], name="idx_doctors_user_id")
-        await db.doctors.create_index([("status", ASCENDING)], name="idx_doctors_status")
-        await db.doctors.create_index([("specialization", ASCENDING)], name="idx_doctors_specialization")
+    # 2. Doctors collection
+    try:
+        await db.doctors.create_index([("userId", ASCENDING)])
+        await db.doctors.create_index([("status", ASCENDING)])
+        await db.doctors.create_index([("specialization", ASCENDING)])
+    except Exception as e:
+        logger.debug("Doctors indexes: %s", e)
 
-        # 3. Appointments collection
-        await db.appointments.create_index([("userId", ASCENDING)], name="idx_appointments_user_id")
-        await db.appointments.create_index([("doctorId", ASCENDING), ("date", ASCENDING)], name="idx_appointments_doctor_date")
-
+    # 3. Appointments collection - Double booking prevention
+    try:
+        await db.appointments.create_index([("userId", ASCENDING)])
+        await db.appointments.create_index([("doctorId", ASCENDING), ("date", ASCENDING)])
         # MANDATORY REQUIREMENT: Database-enforced double booking prevention
         # Unique partial index on (doctorId, date, time) where status == "booked"
-        # Cancelled appointments have status != "booked" so slot becomes immediately available again.
         await db.appointments.create_index(
             [("doctorId", ASCENDING), ("date", ASCENDING), ("time", ASCENDING)],
             unique=True,
             partialFilterExpression={"status": "booked"},
             name="idx_appointments_double_booking_prevention",
         )
+    except Exception as e:
+        logger.debug("Appointments indexes: %s", e)
 
-        # 4. In-App Notifications collection
-        await db.notifications.create_index([("userId", ASCENDING), ("createdAt", ASCENDING)], name="idx_notifications_user_created")
-        await db.notifications.create_index([("read", ASCENDING)], name="idx_notifications_read")
+    # 4. In-App Notifications collection
+    try:
+        await db.notifications.create_index([("userId", ASCENDING), ("createdAt", ASCENDING)])
+        await db.notifications.create_index([("read", ASCENDING)])
+    except Exception as e:
+        logger.debug("Notifications indexes: %s", e)
 
-        # 5. Hospitals collection
-        await db.hospitals.create_index([("name", ASCENDING)], name="idx_hospitals_name")
+    # 5. Hospitals collection
+    try:
+        await db.hospitals.create_index([("name", ASCENDING)])
+    except Exception as e:
+        logger.debug("Hospitals indexes: %s", e)
 
-        logger.info("All MongoDB indexes verified and created successfully.")
-    except Exception as exc:
-        logger.warning("Index initialization encountered error (may already exist): %s", exc)
+    logger.info("MongoDB index verification finished.")
 
 
 async def bootstrap_admin() -> None:
