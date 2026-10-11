@@ -1,451 +1,483 @@
-# HealthEase — Smart Healthcare & Doctor Booking Platform
+# HealthEase — Complete Setup, Configuration, Execution and Troubleshooting Guide
 
-A modernized, high-performance, and resilient doctor appointment booking platform built with **FastAPI**, **React.js**, **MongoDB Atlas**, **Redis**, and **RabbitMQ**. HealthEase simplifies appointment scheduling while demonstrating modern backend system design patterns: caching, atomic rate limiting, asynchronous event messaging, database-level concurrency protection, and reverse-proxy load balancing.
-
----
-
-## 1. Project Overview & System Design
-
-HealthEase solves real-world clinic workflow problems with a streamlined and resilient technology stack:
-
-- **Frontend (React.js)**: Clean, lightweight React with standard state and hooks. Complex Redux boilerplate and global state overhead have been eliminated in favor of a fast `AuthContext` and unified Axios HTTP client (`api.js`).
-- **Backend (Python FastAPI)**: High-speed, asynchronous RESTful API featuring automatic OpenAPI/Swagger documentation, strict Pydantic schemas, and robust dependency-injected Role-Based Access Control (RBAC).
-- **Database (MongoDB / MongoDB Atlas)**: Fully persistent document storage with connection pooling, index optimization, and partial unique indexes enforcing concurrency constraints directly in the database engine.
-- **In-Memory Cache (Redis)**: Sub-millisecond caching for high-frequency, read-heavy data (approved doctor directory, individual doctor profiles, and hospital listings) with automatic cache invalidation upon doctor updates.
-- **Rate Limiting (Redis Fixed-Window)**: Atomic rate limiting on critical endpoints (login, registration, chatbot queries, booking) to protect against credential stuffing, brute-force attacks, and API abuse. Includes graceful in-memory fallback.
-- **Asynchronous Event Processing (RabbitMQ)**: Decoupled AMQP message broker. When appointments are booked or doctor applications are processed, FastAPI publishes lightweight event payloads to a durable queue, and a dedicated background worker asynchronously persists in-app notifications. If RabbitMQ is unavailable, a graceful synchronous fallback ensures zero data loss.
-- **Reverse Proxy & Load Balancing (Nginx)**: Optional multi-instance deployment demonstrating round-robin traffic distribution across two independent FastAPI instances.
-- **Preserved Medical Chatbot (Google Gemini)**: Clinical conversational assistant powered by Google Gemini with both microphone speech recognition (voice synthesis) and responsive text input, protected by strict clinical disclaimers.
+This guide contains the exact operational steps to install prerequisites, obtain cloud credentials, configure environment variables, run the application, verify system design features, and resolve common development errors on Windows.
 
 ---
 
-## 2. Architecture & Request Flow
+## 1. Installation and Downloads
 
-### System Architecture Diagram
+### Required Tools and Services
 
-```mermaid
-flowchart TD
-    Client["React Frontend (Port 3000)"]
-    Nginx["Nginx Reverse Proxy / Load Balancer (Port 8080)"]
-    FastAPI1["FastAPI Instance #1 (Port 8001 / App:8000)"]
-    FastAPI2["FastAPI Instance #2 (Port 8002 / App:8000)"]
-    Redis["Redis Cache & Rate Limiter (Port 6379)"]
-    Mongo["MongoDB Atlas / Local DB (Port 27017)"]
-    RMQ["RabbitMQ Message Broker (Port 5672)"]
-    Worker["Notification Worker Process"]
-    Gemini["Google Gemini Medical AI"]
-
-    Client -->|API Requests| Nginx
-    Client -.->|Direct Dev Mode| FastAPI1
-    Nginx -->|Round Robin| FastAPI1
-    Nginx -->|Round Robin| FastAPI2
-
-    FastAPI1 -->|Check Cache & Rate Limits| Redis
-    FastAPI1 -->|Query & Persist Data| Mongo
-    FastAPI1 -->|Publish Event| RMQ
-    FastAPI1 -->|AI Consultation| Gemini
-
-    FastAPI2 -->|Check Cache & Rate Limits| Redis
-    FastAPI2 -->|Query & Persist Data| Mongo
-    FastAPI2 -->|Publish Event| RMQ
-
-    RMQ -->|Consume Event| Worker
-    Worker -->|Persist Notification| Mongo
-```
-
-### End-to-End Request Journey
-
-1. **Patient Booking Request**:
-   - The patient selects an approved doctor, chooses a date and time slot, and clicks **Book Now**.
-   - React sends a `POST /api/v1/user/book-appointment` request with the Bearer JWT token in the `Authorization` header.
-2. **FastAPI Validation & Concurrency Check**:
-   - FastAPI verifies the JWT token via dependency injection (`get_current_user`), enforcing that only authenticated patients can book.
-   - The rate limiter checks Redis to prevent automated bot spam.
-   - FastAPI checks slot availability and inserts the appointment record into MongoDB.
-   - **Double-Booking Protection**: A database-level partial unique index (`idx_appointments_double_booking_prevention`) on `{ "doctorId": 1, "date": 1, "time": 1 }` where `{ "status": "booked" }` guarantees that two concurrent requests for the exact same slot cannot both succeed. If a race condition occurs, MongoDB raises a duplicate key error (code `11000`), and FastAPI returns a clean HTTP `409 Conflict` error to the second user.
-3. **Immediate Confirmation**:
-   - Normal appointments are **immediately confirmed as `booked`**. There is no doctor approval delay for appointments.
-4. **Asynchronous Notification Dispatch**:
-   - FastAPI constructs a notification event payload and publishes it to the durable RabbitMQ exchange/queue (`healthease.notifications`).
-   - The background worker consumes the event and writes in-app notification records to the patient's and doctor's notification feeds in MongoDB.
-   - If RabbitMQ is offline or unconfigured, FastAPI's built-in broker cooldown fallback instantly writes the notification directly to MongoDB without delaying the user's booking response.
+| Tool / Service | Category | Download / Signup Link | Required? | Purpose in HealthEase |
+|---|---|---|---|---|
+| **Python 3.10+** (64-bit) | Local Software | [python.org/downloads](https://www.python.org/downloads/) | **Mandatory** | Runs the FastAPI backend, background notification worker, migration script, and test suite. |
+| **Node.js 18+ & npm** | Local Software | [nodejs.org](https://nodejs.org/) | **Mandatory** | Builds and runs the React development server (`client`). |
+| **Git for Windows** | Local Software | [git-scm.com](https://git-scm.com/download/win) | **Mandatory** | Clones repository, tracks changes, and manages versions. |
+| **Visual Studio Code** | Local Software | [code.visualstudio.com](https://code.visualstudio.com/) | **Recommended** | Recommended code editor for editing Python and React files. |
+| **Docker Desktop** | Local Software | [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/) | **Optional** | Runs containerized Redis, RabbitMQ, and the Nginx load balancer. *(Not required if using Cloud Redis/CloudAMQP or local fallbacks).* |
+| **MongoDB Atlas** | Cloud Account | [mongodb.com/atlas](https://www.mongodb.com/atlas) | **Mandatory for Cloud DB** | Cloud-hosted MongoDB cluster for persistent data storage. *(Can use local MongoDB at `mongodb://localhost:27017` for offline dev).* |
+| **Upstash (or Redis Cloud)** | Cloud Account | [upstash.com](https://upstash.com/) | **Optional for Cloud Cache** | Free serverless Redis for directory caching and atomic rate limiting. *(Docker local Redis can be used instead).* |
+| **CloudAMQP** | Cloud Account | [cloudamqp.com](https://www.cloudamqp.com/) | **Optional for Cloud Queue** | Free hosted RabbitMQ message broker for asynchronous notifications. *(Docker local RabbitMQ can be used instead).* |
+| **Google AI Studio** | Cloud Account | [aistudio.google.com](https://aistudio.google.com/) | **Optional for Chatbot** | Provides the API key for Dr. AI medical chatbot using model `gemini-2.5-flash`. |
 
 ---
 
-## 3. Roles and Permissions (RBAC)
+### Verification of Local Installations
 
-HealthEase strictly enforces three roles at the backend layer:
-
-| Role | Permissions & Access |
-| :--- | :--- |
-| **Patient** | Register & login; browse approved doctors; view doctor details; view hospital listings & map coordinates; book appointments (immediately confirmed); view own appointments; cancel own appointments; interact with Dr. AI Chatbot; receive notifications. |
-| **Doctor** | Log in; manage professional profile (specialization, experience, fees, consultation hours); view own booked appointments; view patient contact details for appointments; create/update hospital listings; receive booking notifications. |
-| **Admin** | View system-wide metrics (total users, approved doctors, pending applications, total appointments); inspect all users; review pending doctor applications; approve or reject doctor applications; manage hospital listings. |
-
-> **Security Note**: Public registration only creates `patient` accounts. Administrator accounts can only be provisioned through the bootstrap configuration (`ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env`), preventing privilege escalation.
-
----
-
-## 4. Local Development Quickstart (Windows PowerShell)
-
-### Prerequisites
-- **Python 3.10+**
-- **Node.js 18+** and **npm**
-- **MongoDB** (Local MongoDB on port 27017 or MongoDB Atlas connection string)
-- *(Optional for Caching & Async Events)* **Docker Desktop** (for Redis and RabbitMQ)
-
----
-
-### Step 1: Configure Environment Variables
-
-Create your backend configuration file by copying the template:
+Open Windows PowerShell and run each verification command:
 
 ```powershell
-# Navigate to the backend directory
-cd c:\study\HealthEase\backend
+# 1. Verify Python version (must be 3.10 or higher)
+python --version
+# Expected output: Python 3.11.x (or 3.10.x / 3.12.x)
 
-# Copy the example environment template
-Copy-Item .env.example .env
+# 2. Verify Node.js and npm
+node -v
+npm -v
+# Expected output: v18.x.x or v20.x.x and 9.x.x or 10.x.x
+
+# 3. Verify Git
+git --version
+# Expected output: git version 2.x.x.windows.x
+
+# 4. Verify Docker Desktop (if installed)
+docker --version
+docker compose version
+# Expected output: Docker version 24.x+ and Docker Compose version v2.x+
 ```
 
-Open `backend\.env` in your text editor and ensure the following keys are set:
+---
+
+## 2. Environment Variables and URLs
+
+### Complete Environment Variables Reference
+
+All backend configurations are loaded through `backend/.env`.
+
+| Variable | Required for | Where to obtain the value | Exact file location | Restart required? |
+|---|---|---|---|---|
+| `PROJECT_NAME` | API metadata | Fixed string: `HealthEase` | `backend/.env` | Yes |
+| `API_V1_PREFIX` | Route prefix | Fixed string: `/api/v1` | `backend/.env` | Yes |
+| `ENVIRONMENT` | Environment mode | `development` or `production` | `backend/.env` | Yes |
+| `PORT` | FastAPI listen port | Integer: `8000` | `backend/.env` | Yes |
+| `FRONTEND_ORIGIN` | CORS whitelist | `http://localhost:3000,http://localhost:5173` | `backend/.env` | Yes |
+| `MONGODB_URI` | Database connection | Local: `mongodb://localhost:27017`<br>Atlas: `mongodb+srv://<user>:<pwd>@cluster.mongodb.net` | `backend/.env` | Yes |
+| `MONGODB_DB` | Database name | Fixed string: `HealthEase` | `backend/.env` | Yes |
+| `JWT_SECRET` | Authentication tokens | Generate a random 32+ character string (e.g. `HARRYPOTTER123456_healthease_secure_jwt_secret_key_2026`) | `backend/.env` | Yes |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Token lifetime | Integer in minutes: `1440` (24 hours) | `backend/.env` | Yes |
+| `ALGORITHM` | JWT hashing algorithm | Fixed string: `HS256` | `backend/.env` | Yes |
+| `ADMIN_NAME` | Initial admin bootstrap | Fixed string: `HealthEase Admin` | `backend/.env` | Yes |
+| `ADMIN_EMAIL` | Initial admin login | Email: `admin@healthease.com` | `backend/.env` | Yes |
+| `ADMIN_PASSWORD` | Initial admin login | Secure password: `Admin@HealthEase2026` | `backend/.env` | Yes |
+| `REDIS_URL` | Caching & Rate Limiting | Local: `redis://localhost:6379/0`<br>Upstash: `rediss://default:<pwd>@<endpoint>.upstash.io:6379` | `backend/.env` | Yes |
+| `REDIS_ENABLED` | Toggle Redis layer | Boolean: `true` or `false` | `backend/.env` | Yes |
+| `CACHE_TTL_SECONDS` | Cache expiration | Integer in seconds: `300` (5 minutes) | `backend/.env` | Yes |
+| `RABBITMQ_URL` | Async event broker | Local: `amqp://guest:guest@localhost:5672/`<br>CloudAMQP: `amqps://<user>:<pwd>@<host>/<vhost>` | `backend/.env` | Yes |
+| `RABBITMQ_QUEUE` | Durable queue name | Fixed string: `healthease_notifications` | `backend/.env` | Yes |
+| `GEMINI_API_KEY` | Dr. AI Chatbot | Google AI Studio > Get API key (starts with `AIzaSy...`) | `backend/.env` | Yes |
+| `GEMINI_MODEL` | AI Chatbot model | Fixed string: `gemini-2.5-flash` | `backend/.env` | Yes |
+
+---
+
+### Safe Template (`backend/.env.example`)
+
+Copy this template to create `backend/.env`:
 
 ```env
-# MongoDB Connection (use local MongoDB or your Atlas URI)
+# Application Settings
+PROJECT_NAME=HealthEase
+API_V1_PREFIX=/api/v1
+ENVIRONMENT=development
+PORT=8000
+FRONTEND_ORIGIN=http://localhost:3000,http://localhost:5173
+
+# MongoDB Settings (Local or MongoDB Atlas)
 MONGODB_URI=mongodb://localhost:27017
 MONGODB_DB=HealthEase
 
-# Authentication
-JWT_SECRET=healthease_super_secure_jwt_secret_key_2026_xyz
-ACCESS_TOKEN_EXPIRE_MINUTES=60
+# Security & Authentication (Must be 32+ characters for HS256)
+JWT_SECRET=your_super_secret_jwt_key_at_least_32_characters_long
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+ALGORITHM=HS256
 
-# Frontend URL for CORS
-FRONTEND_ORIGIN=http://localhost:3000,http://localhost:5173
-
-# Optional Services (default local Docker ports)
-REDIS_URL=redis://localhost:6379/0
-RABBITMQ_URL=amqp://guest:guest@localhost:5672/
-
-# Admin Bootstrap (automatically created on first startup)
+# Bootstrap Administrator Account
+ADMIN_NAME=HealthEase Admin
 ADMIN_EMAIL=admin@healthease.com
-ADMIN_PASSWORD=AdminSecurePassword2026!
+ADMIN_PASSWORD=Admin@HealthEase2026
 
-# Preserved Medical Chatbot (Google Gemini)
-GEMINI_API_KEY=your_actual_gemini_api_key_here
+# Redis Settings (Caching & Rate Limiting)
+REDIS_URL=redis://localhost:6379/0
+REDIS_ENABLED=true
+CACHE_TTL_SECONDS=300
+
+# RabbitMQ Settings (Background Notifications)
+RABBITMQ_URL=amqp://guest:guest@localhost:5672/
+RABBITMQ_QUEUE=healthease_notifications
+
+# Medical AI Chatbot (Google Gemini)
+GEMINI_API_KEY=your_gemini_api_key_here
 GEMINI_MODEL=gemini-2.5-flash
 ```
 
----
-
-### Step 2: Set Up and Start the FastAPI Backend
-
-In your PowerShell terminal:
-
-```powershell
-cd c:\study\HealthEase\backend
-
-# Create a Python virtual environment (if not already created)
-python -m venv venv
-
-# Activate the virtual environment
-.\venv\Scripts\Activate.ps1
-
-# Install required Python dependencies
-pip install -r requirements.txt
-
-# Start the FastAPI application with auto-reload
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-
-- **API Root**: `http://localhost:8000`
-- **Interactive Swagger Docs**: `http://localhost:8000/docs`
-- **Alternative Redoc Documentation**: `http://localhost:8000/redoc`
-- **Liveness Health Check**: `http://localhost:8000/health`
-- **Readiness Probe**: `http://localhost:8000/ready`
+> **Security Rule**: Never commit `backend/.env` to Git. The `.gitignore` file already excludes `backend/.env`, certificates (`*.pem`, `*.key`), and local secrets.
 
 ---
 
-### Step 3: (Optional) Run the RabbitMQ Notification Worker
+## 3. Complete Setup Instructions for Every Service
 
-If you are running RabbitMQ and want background notification consumption:
+### A. MongoDB Atlas (Cloud Database)
 
-```powershell
-# In a separate PowerShell terminal
-cd c:\study\HealthEase\backend
-.\venv\Scripts\Activate.ps1
-
-python worker.py
-```
-
-*(Note: If RabbitMQ is not running, notifications automatically save directly to MongoDB with zero errors.)*
-
----
-
-### Step 4: Set Up and Start the React Frontend
-
-Open a new PowerShell terminal:
-
-```powershell
-cd c:\study\HealthEase\client
-
-# Install frontend dependencies
-npm install
-
-# Start the React development server
-npm start
-```
-
-The browser will automatically open `http://localhost:3000`.
-
----
-
-## 5. MongoDB Atlas Setup & Safe Data Migration
-
-HealthEase works seamlessly with persistent **MongoDB Atlas** cloud storage.
-
-### How to Set Up MongoDB Atlas
-
-1. **Create an Account**: Go to [mongodb.com/atlas](https://www.mongodb.com/atlas) and create or sign in to your free account.
-2. **Create a Cluster**: Click **Build a Database** and select the free **M0 Shared** tier in your closest region.
-3. **Create Database Credentials**:
-   - In **Security > Database Access**, click **Add New Database User**.
+1. **Create an Atlas Cluster**:
+   - Go to [mongodb.com/atlas](https://www.mongodb.com/atlas) and sign in.
+   - Click **Create Deployment** > select **M0 Shared** (Free Tier).
+   - Select cloud provider (AWS/GCP) and region closest to you (e.g. `Mumbai (ap-south-1)`).
+   - Name the cluster (e.g., `HealthEaseCluster`) and click **Create**.
+2. **Create Database User**:
+   - In the left sidebar, click **Security > Database Access**.
+   - Click **Add New Database User**.
    - Select **Password Authentication**.
-   - Set a username (e.g., `healthease_user`) and a secure password.
-   - Assign the **Read and write to any database** role.
-4. **Configure Network Access**:
-   - In **Security > Network Access**, click **Add IP Address**.
-   - Add your current IP address (or click **Allow Access from Anywhere** `0.0.0.0/0` for initial development).
-5. **Get Connection String**:
-   - Click **Database > Connect > Drivers**.
-   - Copy the connection URI:
+   - Enter a Username (e.g., `healthease_user`) and a secure password.
+   - Set privileges to **Read and write to any database**.
+   - Click **Add User**.
+3. **Configure Network Access (IP Whitelist)**:
+   - In the left sidebar, click **Security > Network Access**.
+   - Click **Add IP Address**.
+   - Click **Allow Access from Anywhere** (`0.0.0.0/0`) for seamless development.
+   - Click **Confirm** and wait ~30 seconds until status shows **Active**.
+4. **Copy Connection String**:
+   - Go to **Database > Clusters** > click **Connect**.
+   - Select **Drivers** (Python).
+   - Copy the URI:
      ```text
-     mongodb+srv://<username>:<password>@cluster0.abcde.mongodb.net/?retryWrites=true&w=majority&appName=HealthEase
+     mongodb+srv://healthease_user:<password>@healtheasecluster.xxxx.mongodb.net/?retryWrites=true&w=majority&appName=HealthEase
      ```
-6. **Update `.env`**:
-   In `backend/.env`, set:
-   ```env
-   MONGODB_URI=mongodb+srv://healthease_user:<your_password>@cluster0.abcde.mongodb.net/?retryWrites=true&w=majority&appName=HealthEase
-   MONGODB_DB=HealthEase
+   - Replace `<password>` with your database user password.
+   - Paste into `backend/.env`:
+     ```env
+     MONGODB_URI=mongodb+srv://healthease_user:MySecurePassword@healtheasecluster.xxxx.mongodb.net/?retryWrites=true&w=majority&appName=HealthEase
+     MONGODB_DB=HealthEase
+     ```
+5. **Migrate Local MongoDB Data (Safe & Idempotent)**:
+   If you have local records in `mongodb://localhost:27017` to migrate:
+   ```powershell
+   # Dry run first (validates without writing)
+   python scripts/migrate_to_atlas.py --source "mongodb://localhost:27017" --target "mongodb+srv://healthease_user:MySecurePassword@healtheasecluster.xxxx.mongodb.net" --dry-run
+
+   # Perform actual safe migration (upserts preserving ObjectIds)
+   python scripts/migrate_to_atlas.py --source "mongodb://localhost:27017" --target "mongodb+srv://healthease_user:MySecurePassword@healtheasecluster.xxxx.mongodb.net"
    ```
-7. **Restart the Backend**: Once restarted, all newly registered patients, doctors, hospitals, and bookings persist in the Atlas cloud.
 
 ---
 
-### Safe Data Migration Tool (`scripts/migrate_to_atlas.py`)
+### B. Redis (Caching & Rate Limiting)
 
-HealthEase provides a dedicated, non-destructive migration script to sync collections from a local database to MongoDB Atlas:
+Redis caches doctor directories and enforces atomic rate limiting on login (10/min), register (5/min), and chatbot (20/min).
 
-```powershell
-cd c:\study\HealthEase
-
-# 1. Run a Dry Run first to inspect documents without writing anything
-python scripts/migrate_to_atlas.py --source "mongodb://localhost:27017" --target "mongodb+srv://<user>:<pwd>@cluster.mongodb.net" --dry-run
-
-# 2. Run the actual migration (uses idempotent upserts preserving all ObjectIds)
-python scripts/migrate_to_atlas.py --source "mongodb://localhost:27017" --target "mongodb+srv://<user>:<pwd>@cluster.mongodb.net"
-```
-
-**Features of the migration script**:
-- **Non-destructive**: Never drops, alters, or deletes any collection in the source or target databases.
-- **Idempotent**: Uses `update_one({"_id": doc["_id"]}, {"$set": doc}, upsert=True)` so it can be re-run safely anytime.
-- **Index Rebuilding**: Re-creates all indexes including unique email constraints and double-booking prevention indexes on Atlas.
-
----
-
-## 6. Redis Caching & Atomic Rate Limiting
-
-### What Redis Does in HealthEase
-
-1. **Directory Caching**: The public doctor directory (`/api/v1/user/getAllDoctors`) and hospital directory (`/api/v1/hospitals`) are cached in Redis with a 5-minute TTL (`300` seconds). This eliminates redundant database queries for read-heavy screens.
-2. **Automatic Invalidation**: Whenever an approved doctor updates their profile or consultation hours (`/api/v1/doctor/updateProfile`), or an admin approves a new doctor, the doctor directory cache key is automatically invalidated.
-3. **Atomic Rate Limiting**: Sensitive endpoints use Redis `INCR` and `EXPIRE` commands within a fixed window:
-   - **Login**: Max 10 attempts per minute per IP address.
-   - **Register**: Max 5 attempts per minute per IP address.
-   - **Dr. AI Chatbot**: Max 20 queries per minute per IP address.
-
-### Running Redis with Docker Compose
-
-To spin up Redis locally:
-
-```powershell
-cd c:\study\HealthEase
-docker compose up -d redis
-```
-
-### Managed Redis (Upstash / Redis Cloud)
-
-If deploying to production, sign up for a free Redis instance on [Upstash](https://upstash.com) or [Redis Cloud](https://redis.com) and update your `backend/.env`:
-
-```env
-REDIS_URL=rediss://default:your_password@your-endpoint.upstash.io:6379
-```
-
-> **Offline Resiliency**: If Redis is not running or unreachable, HealthEase logs a single warning and seamlessly falls back to querying MongoDB directly and using local in-memory rate limiting. No requests will fail!
+- **Option 1: Local Docker Redis**:
+  ```powershell
+  docker run -d --name healthease-redis -p 6379:6379 redis:7-alpine
+  ```
+  `backend/.env`: `REDIS_URL=redis://localhost:6379/0`
+- **Option 2: Cloud Redis on Upstash (Free Serverless)**:
+  1. Visit [upstash.com](https://upstash.com/) and sign in.
+  2. Click **Create Database** > Name: `healthease-redis` > Choose your region.
+  3. Under **Connect to your database**, click **redis-py** and copy the URL:
+     `rediss://default:xxxx@your-endpoint.upstash.io:6379`
+  4. Paste into `backend/.env`:
+     ```env
+     REDIS_URL=rediss://default:xxxx@your-endpoint.upstash.io:6379
+     ```
+- **Fallback Behavior**: If Redis is offline or unreachable, HealthEase automatically falls back to MongoDB queries and local in-memory rate limiting. No API requests will fail.
 
 ---
 
-## 7. RabbitMQ Background Event Notifications
+### C. RabbitMQ (Message Broker)
 
-### How It Works
+RabbitMQ manages asynchronous in-app notification processing when bookings or status updates occur.
 
-```text
-[Patient Books Slot]
-       │
-       ▼
-[FastAPI saves booking to MongoDB]
-       │
-       ▼
-[FastAPI publishes event to 'healthease.notifications']
-       │
-       ▼
-[RabbitMQ Durable Queue]
-       │
-       ▼
-[worker.py consumes event] ──> [Inserts notification in MongoDB] ──> [Worker ACK]
-```
-
-1. When an appointment is booked or cancelled, or an admin reviews a doctor application, FastAPI calls `publish_notification_event()`.
-2. The event is pushed to the durable queue `healthease.notifications`.
-3. `worker.py` consumes the message, saves the notification to MongoDB, and acknowledges the message (`ch.basic_ack`).
-4. Duplicate messages are handled idempotently to prevent duplicate alerts.
-
-### Running RabbitMQ
-
-To start RabbitMQ with the Web Management Dashboard:
-
-```powershell
-cd c:\study\HealthEase
-docker compose up -d rabbitmq
-```
-
-- **AMQP Protocol**: `amqp://guest:guest@localhost:5672/`
-- **Web Console**: `http://localhost:15672` (Username: `guest`, Password: `guest`)
+- **Option 1: Local Docker RabbitMQ**:
+  ```powershell
+  docker run -d --name healthease-rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management-alpine
+  ```
+  - AMQP Port: `5672` (`amqp://guest:guest@localhost:5672/`)
+  - Web Management UI: `http://localhost:15672` (Username: `guest`, Password: `guest`)
+- **Option 2: Cloud RabbitMQ on CloudAMQP (Free Little Lemur Plan)**:
+  1. Visit [cloudamqp.com](https://www.cloudamqp.com/) and sign in.
+  2. Click **Create New Instance** > Plan: **Little Lemur (Free)** > Select region.
+  3. Open the instance details and copy the **AMQP URL**:
+     `amqps://username:password@server.cloudamqp.com/vhost`
+  4. Paste into `backend/.env`:
+     ```env
+     RABBITMQ_URL=amqps://username:password@server.cloudamqp.com/vhost
+     ```
+- **Fallback Behavior**: If RabbitMQ is offline, FastAPI automatically saves notification records directly to MongoDB without delaying the booking confirmation response.
 
 ---
 
-## 8. Reverse Proxy & Nginx Load Balancing
+### D. Background Worker
 
-HealthEase includes a complete load balancing setup featuring two identical FastAPI instances behind an **Nginx** reverse proxy:
+The background worker (`worker.py`) consumes events from the durable queue `healthease_notifications` and saves in-app notification documents to MongoDB.
 
-```powershell
-cd c:\study\HealthEase
+- **How to Run**:
+  Open a dedicated PowerShell terminal:
+  ```powershell
+  cd c:\study\HealthEase\backend
+  .\venv\Scripts\python.exe worker.py
+  ```
+- **How to Verify**:
+  When a patient books an appointment, the worker log will output:
+  ```text
+  [INFO] Consumed notification event 'appointment-booked' for recipient 65f...
+  [INFO] Notification persisted to MongoDB. Acknowledging message.
+  ```
 
-# Start the full cluster: 2 backend instances, Redis, RabbitMQ, Worker, and Nginx
-docker compose up --build -d
+---
+
+### E. Docker and Docker Compose
+
+HealthEase includes a multi-service `docker-compose.yml` for running the entire infrastructure:
+
+```yaml
+services:
+  redis:        # Port 6379: In-memory cache & rate limiter
+  rabbitmq:     # Ports 5672 (AMQP) & 15672 (Management UI)
+  backend_1:    # Port 8001: FastAPI application instance #1
+  backend_2:    # Port 8002: FastAPI application instance #2
+  worker:       # Notification worker container
+  nginx_proxy:  # Port 8080: Reverse proxy & load balancer
 ```
 
-### Testing the Load Balancer
-
-1. Open `http://localhost:8080/lb-health` to check the Nginx load balancer status.
-2. Send requests to `http://localhost:8080/health`. Nginx automatically alternates requests between `backend_1` (port 8001) and `backend_2` (port 8002) using round-robin distribution.
-3. Access the full application through port `8080`.
-
-To tear down the containers:
-
+#### Exact Docker Commands:
 ```powershell
+# 1. Start all containerized services in background
+docker compose up -d
+
+# 2. Check running container status and health
+docker compose ps
+
+# 3. View live logs of a specific service
+docker compose logs -f backend_1
+docker compose logs -f worker
+
+# 4. Restart a specific service
+docker compose restart redis
+
+# 5. Stop all containers safely (preserves database volumes)
+docker compose stop
+
+# 6. Tear down containers and networks
 docker compose down
+
+# WARNING: Only use -v if you want to wipe local Redis and RabbitMQ volumes:
+# docker compose down -v
 ```
 
 ---
 
-## 9. Automated Testing Suite
+### F. Nginx and Load Balancing
 
-HealthEase includes comprehensive automated tests covering all critical requirements:
-- User registration and login
-- JWT creation and validation
-- Role-Based Access Control (Patient, Doctor, Admin)
-- Doctor application submission and Admin approval workflow
-- Immediate appointment booking confirmation
-- **Concurrency & Double-Booking Prevention**: Verifies that duplicate booking requests for the same doctor and slot result in HTTP `409 Conflict`
-- Appointment cancellation and slot release
-- Cross-patient appointment isolation (Patient A cannot view Patient B's records)
-- Hospital listings and Redis cache verification
-- In-memory rate limiting enforcement
-- Health and readiness probe validation
+The load balancer demonstrates high availability by distributing traffic across two independent FastAPI instances.
 
-Run the tests using pytest:
+- **Configuration File**: `nginx/nginx.conf`
+- **Upstream Cluster**:
+  ```nginx
+  upstream healthease_backend {
+      server backend_1:8000 max_fails=3 fail_timeout=10s;
+      server backend_2:8000 max_fails=3 fail_timeout=10s;
+  }
+  ```
+- **How to Start**:
+  ```powershell
+  docker compose up --build -d
+  ```
+- **How to Verify**:
+  1. Open `http://localhost:8080/lb-health` (returns `{"status":"UP","balancer":"nginx"}`).
+  2. Open `http://localhost:8080/health`. Nginx automatically alternates requests between `backend_1` and `backend_2` using round-robin scheduling.
+  3. Normal local development uses the standalone FastAPI instance at `http://localhost:8000`.
+
+---
+
+### G. Chatbot and Maps
+
+1. **Dr. AI Medical Chatbot (Google Gemini)**:
+   - Provider: Google Gemini API via `gemini-2.5-flash`.
+   - Setup: Get key from [aistudio.google.com](https://aistudio.google.com/) and paste into `GEMINI_API_KEY` in `backend/.env`.
+   - Features: Supports voice speech recognition, audio synthesis, and responsive text input with clinical safety disclaimers.
+   - Endpoint: `POST /api/v1/chatbot/chat`.
+2. **Interactive Maps (Google Maps Embed)**:
+   - Integrated in `BookingPage.js` and `HospitalPage.js`.
+   - Uses standard Google Maps Embed (`maps.google.com/maps?q=lat,lng&output=embed`).
+   - Does **not** require a paid API key or billing account. Coordinates are saved on doctor and hospital records in MongoDB.
+
+---
+
+## 4. First-Time Setup: Exact Execution Order
+
+Follow this exact sequence to set up the project from scratch on Windows:
+
+1. **Install Prerequisites**: Verify Python 3.10+, Node.js 18+, Git, and VS Code.
+2. **Create Environment File**:
+   ```powershell
+   cd c:\study\HealthEase\backend
+   Copy-Item .env.example .env
+   ```
+3. **Configure Credentials in `backend/.env`**:
+   - Set `MONGODB_URI` (Atlas connection string or local MongoDB).
+   - Set `JWT_SECRET` (at least 32 characters).
+   - Set `GEMINI_API_KEY` (from Google AI Studio).
+4. **Prepare Python Virtual Environment**:
+   ```powershell
+   cd c:\study\HealthEase\backend
+   python -m venv venv --system-site-packages
+   .\venv\Scripts\Activate.ps1
+   pip install -r requirements.txt
+   ```
+5. **Start the FastAPI Backend**:
+   ```powershell
+   uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+   ```
+   *(Verify `http://127.0.0.1:8000/health` returns status 200 `healthy`).*
+6. **Start the Notification Worker (Optional)**:
+   In a second terminal:
+   ```powershell
+   cd c:\study\HealthEase\backend
+   .\venv\Scripts\python.exe worker.py
+   ```
+7. **Install Frontend Dependencies & Start React**:
+   In a third terminal:
+   ```powershell
+   cd c:\study\HealthEase\client
+   npm install
+   npm start
+   ```
+8. **Open Application**:
+   Navigate to `http://localhost:3000` in your browser.
+9. **Verify Features**:
+   - Register a new patient at `/register`.
+   - Log in with `admin@healthease.com` / `Admin@HealthEase2026` at `/login`.
+   - Book an appointment and verify it appears immediately in the patient and doctor dashboards.
+
+---
+
+## 5. Normal Daily Startup and Shutdown
+
+### Startup (3 Terminals)
 
 ```powershell
-cd c:\study\HealthEase
+# Terminal 1: Backend API (Port 8000)
+cd c:\study\HealthEase\backend
+.\venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 
-# Run tests with verbose output
-pytest tests/test_backend.py -v
+# Terminal 2: React Frontend (Port 3000)
+cd c:\study\HealthEase\client
+npm start
+
+# Terminal 3: Notification Worker (Optional)
+cd c:\study\HealthEase\backend
+.\venv\Scripts\python.exe worker.py
 ```
 
-All 10/10 automated tests pass cleanly!
+### Shutdown
+
+1. In Terminals 1, 2, and 3, press `Ctrl + C`.
+2. If Docker containers were running, execute:
+   ```powershell
+   docker compose stop
+   ```
 
 ---
 
-## 10. Troubleshooting & FAQ
+## 6. How to Fix Red Errors & VS Code Squiggles
 
-### 1. MongoDB Atlas Connection Failure (`ServerSelectionTimeoutError`)
-- **Cause**: IP address not whitelisted in MongoDB Atlas.
-- **Solution**: Go to MongoDB Atlas > **Network Access** > **Add IP Address** > Select **Allow Access from Anywhere** (`0.0.0.0/0`) or whitelist your current public IP.
+If you see red underlines in `admin_routes.py`, `main.py`, or other Python files in VS Code:
 
-### 2. Double-Booking Index Conflict (`IndexOptionsConflict`)
-- **Cause**: An old index with the same keys exists with different options.
-- **Solution**: The backend automatically manages and verifies indexes on startup. You can also run `python scripts/migrate_to_atlas.py` to ensure clean index creation.
+### Cause 1: Python Interpreter Not Selected
+VS Code defaults to global Windows Python instead of the virtual environment.
+- **Fix**:
+  1. Press `Ctrl + Shift + P` in VS Code.
+  2. Type: `Python: Select Interpreter`.
+  3. Select: `c:\study\HealthEase\backend\venv\Scripts\python.exe`.
 
-### 3. Dr. AI Chatbot Returns "API Key Required"
-- **Cause**: `GEMINI_API_KEY` is empty in `backend/.env`.
-- **Solution**: Get a free API key from [Google AI Studio](https://aistudio.google.com/) and paste it into `backend/.env`. The backend uses model `gemini-2.5-flash`.
+### Cause 2: PyLance Search Paths (Resolved via `.vscode/settings.json`)
+VS Code opened at the root directory doesn't include `./backend` in PyLance search paths, causing `from app...` to show red squiggles.
+- **Fix**: We created `.vscode/settings.json` in the project root:
+  ```json
+  {
+    "python.defaultInterpreterPath": "${workspaceFolder}/backend/venv/Scripts/python.exe",
+    "python.analysis.extraPaths": ["${workspaceFolder}/backend"],
+    "python.autoComplete.extraPaths": ["${workspaceFolder}/backend"]
+  }
+  ```
+  *(Reload VS Code window with `Ctrl + Shift + P` > `Developer: Reload Window` to apply).*
 
-### 4. Port Conflicts (e.g., Port 8000 or 3000 already in use)
-- **FastAPI**: Start on another port: `uvicorn app.main:app --port 8005 --reload` (and update `"proxy": "http://localhost:8005"` in `client/package.json`).
-- **React**: React will automatically prompt to run on port 3001 if port 3000 is occupied.
-
----
-
-## 11. Folder Structure
-
-```text
-HealthEase/
-├── backend/
-│   ├── app/
-│   │   ├── main.py              # FastAPI application root, CORS, lifespan, routes
-│   │   ├── config.py            # Pydantic Settings & environment variables
-│   │   ├── database.py          # Motor async client, collections, indexes, admin bootstrap
-│   │   ├── security.py          # bcrypt password hashing, PyJWT creation & verification
-│   │   ├── dependencies.py      # RBAC dependency injection (get_current_user, require_admin)
-│   │   ├── schemas.py           # Pydantic request/response validation models
-│   │   ├── cache.py             # Redis caching layer with fallback
-│   │   ├── rate_limiter.py      # Redis atomic fixed-window rate limiter
-│   │   ├── queue.py             # RabbitMQ event publisher with direct fallback
-│   │   └── routes/
-│   │       ├── auth_routes.py         # Login, register, profile update
-│   │       ├── doctor_routes.py       # Doctor directory, applications, profile
-│   │       ├── appointment_routes.py  # Immediate booking & slot cancellation
-│   │       ├── hospital_routes.py     # Hospital directory & services
-│   │       ├── admin_routes.py        # Admin stats & application review
-│   │       ├── notification_routes.py # In-app notification center
-│   │       └── chatbot_routes.py      # Google Gemini Dr. AI assistant
-│   ├── worker.py                # Standalone RabbitMQ notification consumer
-│   ├── requirements.txt         # Pinned Python dependencies
-│   ├── Dockerfile               # Production container image for backend & worker
-│   └── .env.example             # Documented environment variables template
-├── client/
-│   ├── src/
-│   │   ├── api.js               # Centralized Axios client with JWT interceptor
-│   │   ├── context/
-│   │   │   └── AuthContext.js   # Lightweight React authentication state
-│   │   ├── components/          # Reusable UI components (Layout, ProtectedRoute, etc.)
-│   │   ├── pages/               # Application views (Home, Booking, HospitalPage, Chatbot, etc.)
-│   │   ├── index.js             # React entry point with AuthProvider (no Redux)
-│   │   └── App.js               # React Router navigation
-│   └── package.json             # Frontend dependencies & proxy to port 8000
-├── scripts/
-│   └── migrate_to_atlas.py      # Idempotent MongoDB to Atlas migration script
-├── nginx/
-│   └── nginx.conf               # Nginx reverse proxy & round-robin load balancer
-├── tests/
-│   └── test_backend.py          # Pytest automated test suite
-├── docker-compose.yml           # Multi-container orchestration (Redis, RMQ, 2x FastAPI, Nginx)
-├── .gitignore                   # Ignores venvs, logs, secrets, and node_modules
-└── README.md                    # This complete documentation
-```
+### Cause 3: Port 8000 Already in Use (`[Errno 10048]`)
+A previous Uvicorn process is still holding the port.
+- **Fix**:
+  ```powershell
+  # Find and stop the process holding port 8000
+  Stop-Process -Id (Get-NetTCPConnection -LocalPort 8000).OwningProcess -Force
+  ```
 
 ---
 
-## 12. License & Author
+## 7. Troubleshooting Reference
 
-Developed with care for modern healthcare accessibility. Open source under the MIT License.
+| Error or Symptom | How to Check | Likely Cause | Exact Solution |
+|---|---|---|---|
+| `Import "app.xxx" could not be resolved` | Check VS Code Problems tab | PyLance extra paths missing | Ensure `.vscode/settings.json` has `extraPaths: ["${workspaceFolder}/backend"]` and reload VS Code. |
+| `[Errno 10048] address already in use: 8000` | Terminal output on Uvicorn start | Background Python process holding port 8000 | Run: `Stop-Process -Id (Get-NetTCPConnection -LocalPort 8000).OwningProcess -Force`. |
+| `ServerSelectionTimeoutError` | Uvicorn logs on startup | MongoDB Atlas IP not whitelisted | In MongoDB Atlas > Network Access, add `0.0.0.0/0` (Allow from anywhere) and wait 30 seconds. |
+| `Redis connection failed (Timeout)` | Uvicorn logs on startup | Local Redis container not running | Start Redis (`docker compose up -d redis`) or let HealthEase run with its built-in database fallback. |
+| `RabbitMQ broker disconnected` | Worker terminal output | RabbitMQ container not running | Start RabbitMQ (`docker compose up -d rabbitmq`) or let FastAPI save notifications directly to MongoDB. |
+| `CORS Error in Browser Console` | F12 Developer Tools > Network tab | Frontend port not in CORS origin | Add your frontend port to `FRONTEND_ORIGIN` in `backend/.env` (default allows `http://localhost:3000`). |
+| `InsecureKeyLengthWarning (JWT)` | Terminal output | `JWT_SECRET` shorter than 32 bytes | Ensure `JWT_SECRET` in `backend/.env` has at least 32 characters. |
+| `Duplicate slot error: 409 Conflict` | Network tab on booking | Slot is already booked by another user | Normal behavior: double-booking prevention prevented a collision. Select another time slot. |
+| `Chatbot returns 500 or key error` | Network tab on `/api/v1/chatbot/chat` | `GEMINI_API_KEY` is missing or invalid | Get a free API key from [aistudio.google.com](https://aistudio.google.com/) and update `backend/.env`. |
+
+---
+
+## 8. Complete Feature Setup and Testing Checklist
+
+Follow this checklist to test all working features:
+
+| Feature | How to Test | Expected Result | Configuration Needed |
+|---|---|---|---|
+| **Health Probe** | Open `http://localhost:8000/health` | HTTP 200 `{"status": "healthy"}` | None |
+| **Swagger Docs** | Open `http://localhost:8000/docs` | Interactive API documentation | None |
+| **Patient Registration** | Submit form at `/register` | Account created; redirects to `/login` | MongoDB |
+| **User Login** | Submit credentials at `/login` | JWT stored in localStorage; redirect to `/dashboard` | MongoDB |
+| **RBAC Route Guard** | Patient calls `/api/v1/admin/getAllUsers` | HTTP 403 Forbidden | Valid Patient JWT |
+| **Doctor Application** | Patient submits form at `/apply-doctor` | Status `pending`; notification sent to Admin | MongoDB |
+| **Admin Approval** | Admin clicks Approve at `/admin/doctors` | Status changes to `approved`; doctor appears in directory | Admin Login |
+| **Doctor Directory** | Open `/dashboard` | Approved doctors rendered with fees and location | MongoDB / Redis |
+| **Appointment Booking** | Patient selects date/time at `/doctor/book-appointment/:id` | Immediate confirmation (`booked`); visible in dashboard | MongoDB |
+| **Double-Booking Guard** | Second patient tries booking the same doctor and slot | Database rejects duplicate; API returns HTTP 409 Conflict | MongoDB Unique Index |
+| **Slot Cancellation** | Patient clicks Cancel on `/appointments` | Status changes to `cancelled`; slot is freed | MongoDB |
+| **Hospital Listings** | Open `/hospitals` | Hospital cards with service tags and location details | MongoDB / Redis |
+| **Interactive Map** | Click View on Map on hospital or booking page | Google Maps embed modal displays accurate pin | None (Embed API) |
+| **Dr. AI Chatbot** | Type query or use mic on `/chatbot` | Medical guidance response with clinical disclaimer | `GEMINI_API_KEY` |
+| **In-App Notifications** | Click Bell icon at `/notification` | Unread & Read notification tabs with Mark All Read | MongoDB |
+| **Redis Caching** | Call `/api/v1/user/getAllDoctors` twice | Second call served from Redis cache in <2ms | Redis |
+| **Automated Tests** | Run `pytest tests/test_backend.py -v` | 10 passed out of 10 tests | None |
+
+---
+
+## 9. Where Each Technology and System Design Concept Is Used
+
+| Technology or Concept | Actual File / Function | What It Does in HealthEase | How to Run or Verify It |
+|---|---|---|---|
+| **FastAPI Framework** | `backend/app/main.py` | Asynchronous RESTful API with auto-generated OpenAPI documentation and CORS middleware. | Visit `http://localhost:8000/docs` |
+| **JWT Authentication** | `backend/app/security.py`<br>`create_access_token()`, `verify_token()` | Issues and validates signed HMAC SHA256 tokens for session authentication. | Inspect token payload in browser localStorage |
+| **Role-Based Access Control** | `backend/app/dependencies.py`<br>`require_admin()`, `require_doctor()` | Enforces permissions across Patient, Doctor, and Admin roles at the API layer. | Attempt accessing `/admin/users` as patient (returns 403) |
+| **Motor Async Driver** | `backend/app/database.py`<br>`get_database()` | Non-blocking MongoDB client enabling high-concurrency database I/O. | Handled automatically during all API queries |
+| **Double-Booking Prevention** | `backend/app/database.py`<br>`idx_appointments_double_booking_prevention` | Partial unique database index on `{ doctorId, date, time }` where `{ status: "booked" }`. Prevents race conditions. | Run `pytest tests/test_backend.py -k test_appointment_booking` |
+| **Redis Directory Caching** | `backend/app/cache.py`<br>`get_json()`, `set_json()` | Caches approved doctor and hospital directories with a 5-minute TTL to reduce database load. | Request `/api/v1/user/getAllDoctors` (cached on 2nd call) |
+| **Redis Cache Invalidation** | `backend/app/cache.py`<br>`invalidate_doctors()` | Automatically purges directory cache whenever doctor profiles or approval statuses are updated. | Update doctor profile; verify fresh directory load |
+| **Redis Atomic Rate Limiting** | `backend/app/rate_limiter.py`<br>`check_rate_limit()` | Fixed-window rate limiter using atomic `INCR` and `EXPIRE` commands (Login: 10/min, Register: 5/min, Chatbot: 20/min). | Send 11 rapid login attempts (returns 429 Too Many Requests) |
+| **RabbitMQ Event Publishing** | `backend/app/queue.py`<br>`publish_notification_event()` | Publishes lightweight notification events to the durable queue `healthease_notifications`. | Book an appointment; inspect RabbitMQ management UI |
+| **RabbitMQ Background Worker** | `backend/worker.py`<br>`main()` | Standalone background process consuming queue events and persisting in-app notifications with manual acknowledgments. | Run `python worker.py` in terminal |
+| **Nginx Reverse Proxy & Load Balancer** | `nginx/nginx.conf`<br>`upstream healthease_backend` | Distributes incoming HTTP traffic across two identical FastAPI instances (`backend_1` and `backend_2`) via round-robin. | Run `docker compose up -d` and check `http://localhost:8080/lb-health` |
+| **Operational Probes** | `backend/app/main.py`<br>`/health`, `/ready` | Liveness and readiness endpoints verifying application uptime and dependency connectivity. | Visit `http://localhost:8000/ready` |
+| **Medical AI Chatbot** | `backend/app/routes/chatbot_routes.py` | Conversational medical assistant using Google Gemini with clinical disclaimers. | Test via `/chatbot` page |
+| **Interactive Map Integration** | `client/src/pages/HospitalPage.js`<br>`client/src/pages/BookingPage.js` | Embedded Google Maps iframe displaying hospital and clinic locations from coordinates. | Click "View on Map" on hospital card |
+| **React State & Auth Context** | `client/src/context/AuthContext.js`<br>`client/src/api.js` | Lightweight React authentication state and centralized Axios client replacing complex Redux boilerplate. | Log in and inspect instant role-based UI updates |
