@@ -6,7 +6,7 @@ A complete, beginner-friendly operational guide for configuring, deploying, and 
 
 ## Table of Contents
 1. [Prerequisites & Repository Structure](#1-prerequisites--repository-structure)
-2. [MongoDB Atlas Cloud Setup (Step-by-Step)](#2-mongodb-atlas-cloud-setup-step-by-step)
+2. [MongoDB Atlas Cloud Setup (Step-by-Step: Adding a New Cloud Database)](#2-mongodb-atlas-cloud-setup-step-by-step-adding-a-new-cloud-database)
 3. [Cloud Redis Setup (Upstash / Redis Cloud)](#3-cloud-redis-setup-upstash--redis-cloud)
 4. [Cloud RabbitMQ Setup (CloudAMQP)](#4-cloud-rabbitmq-setup-cloudamqp)
 5. [Google Gemini Medical AI Setup](#5-google-gemini-medical-ai-setup)
@@ -55,61 +55,77 @@ HealthEase/
 
 ---
 
-## 2. MongoDB Atlas Cloud Setup (Step-by-Step)
+## 2. MongoDB Atlas Cloud Setup (Step-by-Step: Adding a New Cloud Database)
 
-HealthEase stores all users, approved doctors, appointments, hospitals, and notifications persistently in MongoDB.
+Follow these exact steps to create and configure a brand-new MongoDB database in the cloud:
 
-### Step 2.1: Create Your Atlas Cluster
+### Step 2.1: Create a Free MongoDB Atlas Account
 1. Navigate to [mongodb.com/atlas](https://www.mongodb.com/atlas) and sign in or create a free account.
-2. In the Atlas dashboard, click **Build a Database**.
-3. Choose the **M0 Free (Shared)** tier.
-4. Select a cloud provider (AWS, Google Cloud, or Azure) and choose the region geographically closest to you (e.g., `Mumbai (ap-south-1)`).
+2. In the Atlas dashboard, click **Create** or **Build a Database**.
+3. Choose the **M0 Free (Shared)** tier (0 USD/month).
+4. Select a cloud provider (AWS, Google Cloud, or Azure) and choose the region geographically closest to you (e.g. `Mumbai (ap-south-1)`).
 5. Name your cluster (e.g., `HealthEaseCluster`) and click **Create Deployment**.
 
 ### Step 2.2: Create a Database User
-1. In the left sidebar, click **Security > Database Access**.
+1. Under **Security Quickstart** (or navigate to **Security > Database Access** in the left sidebar):
 2. Click **Add New Database User**.
 3. Select **Password** as the Authentication Method.
-4. Set a Username (e.g., `healthease_admin`).
-5. Click **Autogenerate Secure Password** or set a strong password. **Copy this password immediately.**
-6. Under **Database User Privileges**, select **Read and write to any database** (or `Built-in Role: Atlas admin`).
+4. Set a Username: e.g. `xyz_username`.
+5. Set a Password: e.g. `xyz_password` (or click Autogenerate). **Copy and save this password.**
+6. Under **Database User Privileges**, select **Read and write to any database**.
 7. Click **Add User**.
 
 ### Step 2.3: Configure Network IP Access
 1. In the left sidebar, click **Security > Network Access**.
 2. Click **Add IP Address**.
-3. For local development from home/office, you can click **Add Current IP Address**.
-4. For seamless access across different networks or cloud servers, click **Allow Access from Anywhere** (`0.0.0.0/0`).
-5. Click **Confirm**. Wait 30 seconds for the status to turn green (**Active**).
+3. Click **Allow Access from Anywhere** (`0.0.0.0/0`) for seamless development.
+4. Set comment: `Development access`.
+5. Click **Confirm**. Wait ~30 seconds until the status shows green (**Active**).
 
 ### Step 2.4: Obtain Your Connection String
 1. In the left sidebar, click **Database > Clusters**.
-2. Click the **Connect** button on your cluster.
+2. Click the **Connect** button on your cluster card.
 3. Select **Drivers** (Python).
 4. Choose version **3.11 or later**.
-5. Copy the connection string. It will look like:
+5. Copy the connection string:
    ```text
-   mongodb+srv://healthease_admin:<password>@healtheasecluster.abcde.mongodb.net/?retryWrites=true&w=majority&appName=HealthEase
+   mongodb+srv://xyz_username:<db_password>@cluster0.xyz.mongodb.net/?retryWrites=true&w=majority&appName=HealthEase
    ```
-6. Replace `<password>` with your actual database user password.
+6. Replace `<db_password>` with your database user password (`xyz_password`).
 
 ### Step 2.5: Configure HealthEase Backend
 Open `backend/.env` and update:
 ```env
-MONGODB_URI=mongodb+srv://healthease_admin:YourActualPassword@healtheasecluster.abcde.mongodb.net/?retryWrites=true&w=majority&appName=HealthEase
+MONGODB_URI=mongodb+srv://xyz_username:xyz_password@cluster0.xyz.mongodb.net/?retryWrites=true&w=majority&appName=HealthEase
 MONGODB_DB=HealthEase
 ```
 
-### Step 2.6: Migrate Existing Local Data to Atlas
-If you have local MongoDB data that you want to transfer safely to Atlas:
+### Step 2.6: Start FastAPI to Initialize the Database
+Start the backend:
+```powershell
+cd c:\study\HealthEase\backend
+.\venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+**What happens automatically**:
+- FastAPI connects to your new Atlas cluster.
+- Motor automatically creates the database `HealthEase`.
+- Automatically initializes all collections: `users`, `doctors`, `appointments`, `hospitals`, `notifications`.
+- Builds all required indexes (including the partial unique index `idx_appointments_double_booking_prevention`).
+- Bootstraps the initial administrator account (`admin@healthease.com` / `xyz_admin_secure_password_123`).
+
+### Step 2.7: Verify in Atlas Web UI
+- Go back to MongoDB Atlas > **Database > Clusters** > click **Browse Collections**.
+- You will see the database `HealthEase` with all collections initialized and ready!
+
+#### (Optional) Migrate Existing Local Data to Atlas
+If you have local records in `mongodb://localhost:27017` that you want to transfer safely:
 ```powershell
 # 1. Run a Dry Run to verify documents without writing
-python scripts/migrate_to_atlas.py --source "mongodb://localhost:27017" --target "mongodb+srv://healthease_admin:YourActualPassword@healtheasecluster.abcde.mongodb.net" --dry-run
+python scripts/migrate_to_atlas.py --source "mongodb://localhost:27017" --target "mongodb+srv://xyz_username:xyz_password@cluster0.xyz.mongodb.net" --dry-run
 
 # 2. Run the actual migration
-python scripts/migrate_to_atlas.py --source "mongodb://localhost:27017" --target "mongodb+srv://healthease_admin:YourActualPassword@healtheasecluster.abcde.mongodb.net"
+python scripts/migrate_to_atlas.py --source "mongodb://localhost:27017" --target "mongodb+srv://xyz_username:xyz_password@cluster0.xyz.mongodb.net"
 ```
-The script will copy all `users`, `doctors`, `appointments`, and `hospitals` documents using idempotent upserts, preserving all MongoDB ObjectIds and rebuilding database indexes.
 
 ---
 
@@ -127,16 +143,15 @@ Redis powers HealthEase's **directory caching** (sub-millisecond doctor and hosp
 7. In the database dashboard under **Connect your database**, select the **redis-py** tab.
 8. Copy the `rediss://...` connection URL:
    ```text
-   rediss://default:AbCdEf123456@your-endpoint.upstash.io:6379
+   rediss://default:xyz_redis_password@xyz-endpoint.upstash.io:6379
    ```
 9. Open `backend/.env` and update:
    ```env
-   REDIS_URL=rediss://default:AbCdEf123456@your-endpoint.upstash.io:6379
+   REDIS_URL=rediss://default:xyz_redis_password@xyz-endpoint.upstash.io:6379
    REDIS_ENABLED=true
    ```
 
 ### Option B: Local Redis via Docker
-If you prefer running Redis locally on your machine:
 ```powershell
 docker run -d --name healthease-redis -p 6379:6379 redis:7-alpine
 ```
@@ -160,11 +175,11 @@ RabbitMQ handles **asynchronous event notifications**. When a patient books an a
 7. Click on your newly created instance name to open its details.
 8. Copy the **AMQP URL**:
    ```text
-   amqps://username:password@server.cloudamqp.com/vhost
+   amqps://xyz_user:xyz_password@xyz-server.cloudamqp.com/xyz_vhost
    ```
 9. Open `backend/.env` and update:
    ```env
-   RABBITMQ_URL=amqps://username:password@server.cloudamqp.com/vhost
+   RABBITMQ_URL=amqps://xyz_user:xyz_password@xyz-server.cloudamqp.com/xyz_vhost
    ```
 
 ### Option B: Local RabbitMQ via Docker
@@ -193,10 +208,10 @@ HealthEase features a clinical medical assistant (**Dr. AI**) integrated with Go
 1. Visit [Google AI Studio](https://aistudio.google.com/).
 2. Sign in with your Google account.
 3. Click **Get API key** > **Create API key in new project**.
-4. Copy the generated key (starts with `AIzaSy...`).
+4. Copy the generated key.
 5. Open `backend/.env` and update:
    ```env
-   GEMINI_API_KEY=AIzaSyYourActualKeyHere
+   GEMINI_API_KEY=xyz_your_gemini_api_key_from_google_ai_studio
    GEMINI_MODEL=gemini-2.5-flash
    ```
 
@@ -207,26 +222,26 @@ HealthEase features a clinical medical assistant (**Dr. AI**) integrated with Go
 Ensure your `backend/.env` has all values populated:
 
 ```env
-# Application
+# Application Settings
 PROJECT_NAME=HealthEase
 API_V1_PREFIX=/api/v1
 ENVIRONMENT=development
 PORT=8000
 FRONTEND_ORIGIN=http://localhost:3000,http://localhost:5173
 
-# Database (MongoDB Atlas or Local)
-MONGODB_URI=mongodb://localhost:27017
+# Database (MongoDB Atlas Cloud or Local)
+MONGODB_URI=mongodb+srv://xyz_username:xyz_password@cluster0.xyz.mongodb.net/?retryWrites=true&w=majority&appName=HealthEase
 MONGODB_DB=HealthEase
 
 # Security (Minimum 32 characters for SHA256)
-JWT_SECRET=HARRYPOTTER123456_healthease_secure_jwt_secret_key_2026
+JWT_SECRET=xyz_your_secret_jwt_key_at_least_32_characters_xyz
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
 ALGORITHM=HS256
 
 # Administrator Bootstrap
 ADMIN_NAME=HealthEase Admin
 ADMIN_EMAIL=admin@healthease.com
-ADMIN_PASSWORD=Admin@HealthEase2026
+ADMIN_PASSWORD=xyz_admin_secure_password_123
 
 # Redis (Cloud or Local)
 REDIS_URL=redis://localhost:6379/0
@@ -238,7 +253,7 @@ RABBITMQ_URL=amqp://guest:guest@localhost:5672/
 RABBITMQ_QUEUE=healthease_notifications
 
 # Medical Chatbot
-GEMINI_API_KEY=AIzaSyYourActualKeyHere
+GEMINI_API_KEY=xyz_your_gemini_api_key_from_google_ai_studio
 GEMINI_MODEL=gemini-2.5-flash
 ```
 
@@ -326,23 +341,14 @@ If you see red squiggles or warnings in VS Code or Antigravity IDE:
      `c:\study\HealthEase\backend\venv\Scripts\python.exe`
   4. Red import squiggles on `fastapi`, `pydantic`, `motor`, etc. will vanish immediately.
 
-### 2. PyJWT Insecure Key Warning
-- **Cause**: HMAC SHA256 requires a key of at least 32 bytes (RFC 7518 Section 3.2).
-- **Fix**: Ensure `JWT_SECRET` in `backend/.env` is at least 32 characters long. We updated it to `HARRYPOTTER123456_healthease_secure_jwt_secret_key_2026`.
+### 2. PyLance Path Resolution (Configured in `.vscode/settings.json`)
+- **Fix**: `.vscode/settings.json` has been configured with `python.analysis.extraPaths: ["${workspaceFolder}/backend"]`.
 
-### 3. React ESLint Unused Variable Warnings
-- **Cause**: Unused imports (e.g. `moment` in pages that do not format dates).
-- **Fix**: We eliminated all unused imports across `Appointments.js`, `BookingPage.js`, and `Chatbot.js`.
-
-### 4. Port 8000 or Port 3000 Already in Use
-- **Cause**: A previous process is still bound to the port.
+### 3. Port 8000 or Port 3000 Already in Use
 - **Fix**: In PowerShell:
   ```powershell
-  # Find process using port 8000
-  Get-NetTCPConnection -LocalPort 8000 | Select-Object OwningProcess
-
-  # Stop the process (replace PID with the OwningProcess number)
-  Stop-Process -Id <PID> -Force
+  # Find and stop the process holding port 8000
+  Stop-Process -Id (Get-NetTCPConnection -LocalPort 8000).OwningProcess -Force
   ```
 
 ---

@@ -61,20 +61,20 @@ All backend configurations are loaded through `backend/.env`.
 | `ENVIRONMENT` | Environment mode | `development` or `production` | `backend/.env` | Yes |
 | `PORT` | FastAPI listen port | Integer: `8000` | `backend/.env` | Yes |
 | `FRONTEND_ORIGIN` | CORS whitelist | `http://localhost:3000,http://localhost:5173` | `backend/.env` | Yes |
-| `MONGODB_URI` | Database connection | Local: `mongodb://localhost:27017`<br>Atlas: `mongodb+srv://<user>:<pwd>@cluster.mongodb.net` | `backend/.env` | Yes |
+| `MONGODB_URI` | Database connection | Local: `mongodb://localhost:27017`<br>Atlas Cloud: `mongodb+srv://xyz_username:xyz_password@cluster0.xyz.mongodb.net/?retryWrites=true&w=majority&appName=HealthEase` | `backend/.env` | Yes |
 | `MONGODB_DB` | Database name | Fixed string: `HealthEase` | `backend/.env` | Yes |
-| `JWT_SECRET` | Authentication tokens | Generate a random 32+ character string (e.g. `HARRYPOTTER123456_healthease_secure_jwt_secret_key_2026`) | `backend/.env` | Yes |
+| `JWT_SECRET` | Authentication tokens | Any random 32+ character string (e.g. `xyz_your_secret_jwt_key_at_least_32_characters_xyz`) | `backend/.env` | Yes |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Token lifetime | Integer in minutes: `1440` (24 hours) | `backend/.env` | Yes |
 | `ALGORITHM` | JWT hashing algorithm | Fixed string: `HS256` | `backend/.env` | Yes |
 | `ADMIN_NAME` | Initial admin bootstrap | Fixed string: `HealthEase Admin` | `backend/.env` | Yes |
 | `ADMIN_EMAIL` | Initial admin login | Email: `admin@healthease.com` | `backend/.env` | Yes |
-| `ADMIN_PASSWORD` | Initial admin login | Secure password: `Admin@HealthEase2026` | `backend/.env` | Yes |
-| `REDIS_URL` | Caching & Rate Limiting | Local: `redis://localhost:6379/0`<br>Upstash: `rediss://default:<pwd>@<endpoint>.upstash.io:6379` | `backend/.env` | Yes |
+| `ADMIN_PASSWORD` | Initial admin login | Password: `xyz_admin_secure_password_123` | `backend/.env` | Yes |
+| `REDIS_URL` | Caching & Rate Limiting | Local: `redis://localhost:6379/0`<br>Upstash Cloud: `rediss://default:xyz_redis_password@xyz-endpoint.upstash.io:6379` | `backend/.env` | Yes |
 | `REDIS_ENABLED` | Toggle Redis layer | Boolean: `true` or `false` | `backend/.env` | Yes |
 | `CACHE_TTL_SECONDS` | Cache expiration | Integer in seconds: `300` (5 minutes) | `backend/.env` | Yes |
-| `RABBITMQ_URL` | Async event broker | Local: `amqp://guest:guest@localhost:5672/`<br>CloudAMQP: `amqps://<user>:<pwd>@<host>/<vhost>` | `backend/.env` | Yes |
+| `RABBITMQ_URL` | Async event broker | Local: `amqp://guest:guest@localhost:5672/`<br>CloudAMQP: `amqps://xyz_user:xyz_password@xyz-server.cloudamqp.com/xyz_vhost` | `backend/.env` | Yes |
 | `RABBITMQ_QUEUE` | Durable queue name | Fixed string: `healthease_notifications` | `backend/.env` | Yes |
-| `GEMINI_API_KEY` | Dr. AI Chatbot | Google AI Studio > Get API key (starts with `AIzaSy...`) | `backend/.env` | Yes |
+| `GEMINI_API_KEY` | Dr. AI Chatbot | Google AI Studio > Get API key (e.g. `xyz_your_gemini_api_key_from_google_ai_studio`) | `backend/.env` | Yes |
 | `GEMINI_MODEL` | AI Chatbot model | Fixed string: `gemini-2.5-flash` | `backend/.env` | Yes |
 
 ---
@@ -91,31 +91,38 @@ ENVIRONMENT=development
 PORT=8000
 FRONTEND_ORIGIN=http://localhost:3000,http://localhost:5173
 
-# MongoDB Settings (Local or MongoDB Atlas)
+# MongoDB Settings (Local or MongoDB Atlas Cloud)
+# Local: mongodb://localhost:27017
+# Atlas Cloud: mongodb+srv://xyz_username:xyz_password@cluster0.xyz.mongodb.net/?retryWrites=true&w=majority&appName=HealthEase
 MONGODB_URI=mongodb://localhost:27017
 MONGODB_DB=HealthEase
 
 # Security & Authentication (Must be 32+ characters for HS256)
-JWT_SECRET=your_super_secret_jwt_key_at_least_32_characters_long
+JWT_SECRET=xyz_your_secret_jwt_key_at_least_32_characters_xyz
 ACCESS_TOKEN_EXPIRE_MINUTES=1440
 ALGORITHM=HS256
 
 # Bootstrap Administrator Account
 ADMIN_NAME=HealthEase Admin
 ADMIN_EMAIL=admin@healthease.com
-ADMIN_PASSWORD=Admin@HealthEase2026
+ADMIN_PASSWORD=xyz_admin_secure_password_123
 
 # Redis Settings (Caching & Rate Limiting)
+# Local: redis://localhost:6379/0
+# Upstash Cloud: rediss://default:xyz_redis_password@xyz-endpoint.upstash.io:6379
 REDIS_URL=redis://localhost:6379/0
 REDIS_ENABLED=true
 CACHE_TTL_SECONDS=300
 
 # RabbitMQ Settings (Background Notifications)
+# Local: amqp://guest:guest@localhost:5672/
+# CloudAMQP: amqps://xyz_user:xyz_password@xyz-server.cloudamqp.com/xyz_vhost
 RABBITMQ_URL=amqp://guest:guest@localhost:5672/
 RABBITMQ_QUEUE=healthease_notifications
 
 # Medical AI Chatbot (Google Gemini)
-GEMINI_API_KEY=your_gemini_api_key_here
+# Obtain free key from https://aistudio.google.com/
+GEMINI_API_KEY=xyz_your_gemini_api_key_from_google_ai_studio
 GEMINI_MODEL=gemini-2.5-flash
 ```
 
@@ -125,47 +132,73 @@ GEMINI_MODEL=gemini-2.5-flash
 
 ## 3. Complete Setup Instructions for Every Service
 
-### A. MongoDB Atlas (Cloud Database)
+### A. MongoDB Atlas (How to Add a Brand New Cloud Database)
 
-1. **Create an Atlas Cluster**:
-   - Go to [mongodb.com/atlas](https://www.mongodb.com/atlas) and sign in.
-   - Click **Create Deployment** > select **M0 Shared** (Free Tier).
-   - Select cloud provider (AWS/GCP) and region closest to you (e.g. `Mumbai (ap-south-1)`).
-   - Name the cluster (e.g., `HealthEaseCluster`) and click **Create**.
-2. **Create Database User**:
-   - In the left sidebar, click **Security > Database Access**.
-   - Click **Add New Database User**.
-   - Select **Password Authentication**.
-   - Enter a Username (e.g., `healthease_user`) and a secure password.
-   - Set privileges to **Read and write to any database**.
-   - Click **Add User**.
-3. **Configure Network Access (IP Whitelist)**:
+Follow these exact steps to create and configure a brand-new MongoDB database in the cloud:
+
+1. **Sign Up or Log In**:
+   - Go to [mongodb.com/atlas](https://www.mongodb.com/atlas).
+   - Sign up for a free account (or log in with Google/GitHub).
+2. **Create a Free Cluster**:
+   - In the MongoDB Atlas dashboard, click **Create** or **Build a Database**.
+   - Under deployment options, select the **M0 (Shared)** free tier (0 USD/month).
+   - Select your preferred cloud provider (AWS, Google Cloud, or Azure) and choose the region geographically closest to you (e.g. `Mumbai (ap-south-1)`).
+   - Set Cluster Name: `HealthEaseCluster` (or leave default `Cluster0`).
+   - Click **Create Deployment**.
+3. **Create Database User Credentials**:
+   - Under **Security Quickstart** (or navigate to **Security > Database Access** in the left sidebar):
+   - Choose **Username and Password** authentication.
+   - Enter a Username: e.g. `xyz_username`.
+   - Enter a Password: e.g. `xyz_password` (or click Autogenerate). **Copy and save this password.**
+   - Ensure the user has the role **Read and write to any database**.
+   - Click **Create Database User**.
+4. **Configure IP Access List (Network Security)**:
    - In the left sidebar, click **Security > Network Access**.
    - Click **Add IP Address**.
    - Click **Allow Access from Anywhere** (`0.0.0.0/0`) for seamless development.
-   - Click **Confirm** and wait ~30 seconds until status shows **Active**.
-4. **Copy Connection String**:
-   - Go to **Database > Clusters** > click **Connect**.
-   - Select **Drivers** (Python).
-   - Copy the URI:
+   - Enter comment: `Development access`.
+   - Click **Confirm**. Wait ~30 seconds until the status shows green (**Active**).
+5. **Get the Connection URI**:
+   - In the left sidebar, click **Database > Clusters**.
+   - Click the **Connect** button on your cluster card.
+   - Under "Connect to your application", select **Drivers**.
+   - Driver: **Python**, Version: **3.11 or later**.
+   - Copy the connection string:
      ```text
-     mongodb+srv://healthease_user:<password>@healtheasecluster.xxxx.mongodb.net/?retryWrites=true&w=majority&appName=HealthEase
+     mongodb+srv://xyz_username:<db_password>@cluster0.xyz.mongodb.net/?retryWrites=true&w=majority&appName=HealthEase
      ```
-   - Replace `<password>` with your database user password.
-   - Paste into `backend/.env`:
+   - Replace `<db_password>` with your real password (`xyz_password`).
+6. **Configure HealthEase**:
+   - Open `backend/.env` and update:
      ```env
-     MONGODB_URI=mongodb+srv://healthease_user:MySecurePassword@healtheasecluster.xxxx.mongodb.net/?retryWrites=true&w=majority&appName=HealthEase
+     MONGODB_URI=mongodb+srv://xyz_username:xyz_password@cluster0.xyz.mongodb.net/?retryWrites=true&w=majority&appName=HealthEase
      MONGODB_DB=HealthEase
      ```
-5. **Migrate Local MongoDB Data (Safe & Idempotent)**:
-   If you have local records in `mongodb://localhost:27017` to migrate:
-   ```powershell
-   # Dry run first (validates without writing)
-   python scripts/migrate_to_atlas.py --source "mongodb://localhost:27017" --target "mongodb+srv://healthease_user:MySecurePassword@healtheasecluster.xxxx.mongodb.net" --dry-run
+7. **Start FastAPI to Initialize the Database**:
+   - Start the backend:
+     ```powershell
+     cd c:\study\HealthEase\backend
+     .\venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+     ```
+   - **What happens automatically**:
+     - FastAPI connects to your new Atlas cluster.
+     - Motor creates the database `HealthEase`.
+     - Automatically creates all collections: `users`, `doctors`, `appointments`, `hospitals`, `notifications`.
+     - Builds all database indexes (including the partial unique index `idx_appointments_double_booking_prevention`).
+     - Bootstraps the initial administrator account (`admin@healthease.com` / `xyz_admin_secure_password_123`).
+8. **Verify in Atlas Web UI**:
+   - Go back to MongoDB Atlas > **Database > Clusters** > click **Browse Collections**.
+   - You will see the database `HealthEase` with collections initialized and populated!
 
-   # Perform actual safe migration (upserts preserving ObjectIds)
-   python scripts/migrate_to_atlas.py --source "mongodb://localhost:27017" --target "mongodb+srv://healthease_user:MySecurePassword@healtheasecluster.xxxx.mongodb.net"
-   ```
+#### (Optional) Migrate Existing Local Data to Atlas:
+If you have local records in `mongodb://localhost:27017` to transfer safely:
+```powershell
+# Dry run first (inspects records without writing)
+python scripts/migrate_to_atlas.py --source "mongodb://localhost:27017" --target "mongodb+srv://xyz_username:xyz_password@cluster0.xyz.mongodb.net" --dry-run
+
+# Run actual safe migration (idempotent upserts preserving ObjectIds)
+python scripts/migrate_to_atlas.py --source "mongodb://localhost:27017" --target "mongodb+srv://xyz_username:xyz_password@cluster0.xyz.mongodb.net"
+```
 
 ---
 
@@ -182,10 +215,10 @@ Redis caches doctor directories and enforces atomic rate limiting on login (10/m
   1. Visit [upstash.com](https://upstash.com/) and sign in.
   2. Click **Create Database** > Name: `healthease-redis` > Choose your region.
   3. Under **Connect to your database**, click **redis-py** and copy the URL:
-     `rediss://default:xxxx@your-endpoint.upstash.io:6379`
+     `rediss://default:xyz_redis_password@xyz-endpoint.upstash.io:6379`
   4. Paste into `backend/.env`:
      ```env
-     REDIS_URL=rediss://default:xxxx@your-endpoint.upstash.io:6379
+     REDIS_URL=rediss://default:xyz_redis_password@xyz-endpoint.upstash.io:6379
      ```
 - **Fallback Behavior**: If Redis is offline or unreachable, HealthEase automatically falls back to MongoDB queries and local in-memory rate limiting. No API requests will fail.
 
@@ -205,10 +238,10 @@ RabbitMQ manages asynchronous in-app notification processing when bookings or st
   1. Visit [cloudamqp.com](https://www.cloudamqp.com/) and sign in.
   2. Click **Create New Instance** > Plan: **Little Lemur (Free)** > Select region.
   3. Open the instance details and copy the **AMQP URL**:
-     `amqps://username:password@server.cloudamqp.com/vhost`
+     `amqps://xyz_user:xyz_password@xyz-server.cloudamqp.com/xyz_vhost`
   4. Paste into `backend/.env`:
      ```env
-     RABBITMQ_URL=amqps://username:password@server.cloudamqp.com/vhost
+     RABBITMQ_URL=amqps://xyz_user:xyz_password@xyz-server.cloudamqp.com/xyz_vhost
      ```
 - **Fallback Behavior**: If RabbitMQ is offline, FastAPI automatically saves notification records directly to MongoDB without delaying the booking confirmation response.
 
@@ -354,7 +387,7 @@ Follow this exact sequence to set up the project from scratch on Windows:
    Navigate to `http://localhost:3000` in your browser.
 9. **Verify Features**:
    - Register a new patient at `/register`.
-   - Log in with `admin@healthease.com` / `Admin@HealthEase2026` at `/login`.
+   - Log in with `admin@healthease.com` / `xyz_admin_secure_password_123` at `/login`.
    - Book an appointment and verify it appears immediately in the patient and doctor dashboards.
 
 ---

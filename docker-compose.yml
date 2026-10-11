@@ -55,7 +55,7 @@ services:
     environment:
       - MONGODB_URI=${MONGODB_URI:-mongodb://host.docker.internal:27017}
       - MONGODB_DB=${MONGODB_DB:-HealthEase}
-      - JWT_SECRET=${JWT_SECRET:-healthease_super_secure_jwt_secret_key_2026_xyz}
+      - JWT_SECRET=${JWT_SECRET:-xyz_default_jwt_secret_key_change_in_production_xyz}
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
       - REDIS_URL=redis://redis:6379/0
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/
@@ -82,7 +82,7 @@ services:
     environment:
       - MONGODB_URI=${MONGODB_URI:-mongodb://host.docker.internal:27017}
       - MONGODB_DB=${MONGODB_DB:-HealthEase}
-      - JWT_SECRET=${JWT_SECRET:-healthease_super_secure_jwt_secret_key_2026_xyz}
+      - JWT_SECRET=${JWT_SECRET:-xyz_default_jwt_secret_key_change_in_production_xyz}
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
       - REDIS_URL=redis://redis:6379/0
       - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672/

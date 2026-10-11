@@ -15,7 +15,7 @@ Usage:
   python scripts/migrate_to_atlas.py --dry-run
 
   # 2. Perform real migration to MongoDB Atlas:
-  python scripts/migrate_to_atlas.py --target-uri "mongodb+srv://user:pass@cluster.mongodb.net/?retryWrites=true&w=majority" --target-db "healthease"
+  python scripts/migrate_to_atlas.py --target-uri "mongodb+srv://xyz_user:xyz_password@cluster0.xyz.mongodb.net/?retryWrites=true&w=majority" --target-db "HealthEase"
 """
 
 import os

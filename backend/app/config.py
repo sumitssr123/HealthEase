@@ -19,14 +19,14 @@ class Settings(BaseSettings):
     MONGODB_DB: str = "healthease"
 
     # JWT Authentication
-    JWT_SECRET: str = "healthease_super_secure_jwt_secret_key_change_in_production"
+    JWT_SECRET: str = "xyz_default_jwt_secret_key_change_in_production_xyz"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     ALGORITHM: str = "HS256"
 
     # Bootstrap Administrator
     ADMIN_NAME: str = "HealthEase Admin"
     ADMIN_EMAIL: str = "admin@healthease.com"
-    ADMIN_PASSWORD: str = "Admin@HealthEase2026"
+    ADMIN_PASSWORD: str = "xyz_admin_secure_password_123"
 
     # Redis (Caching & Rate Limiting)
     REDIS_URL: str = "redis://localhost:6379/0"
