@@ -41,7 +41,10 @@ class RedisCache:
     async def close(self) -> None:
         """Close the Redis client."""
         if self.client is not None:
-            await self.client.close()
+            if hasattr(self.client, "aclose"):
+                await self.client.aclose()
+            else:
+                await self.client.close()
             self.client = None
             self._connected = False
             logger.info("Redis connection closed.")
@@ -52,7 +55,7 @@ class RedisCache:
 
     async def get_json(self, key: str) -> Optional[Any]:
         """Fetch and parse JSON from Redis cache."""
-        if not self.is_available:
+        if not self._connected or self.client is None:
             return None
         try:
             data = await self.client.get(key)
@@ -67,7 +70,7 @@ class RedisCache:
 
     async def set_json(self, key: str, value: Any, ttl: int = settings.CACHE_TTL_SECONDS) -> bool:
         """Serialize and store JSON in Redis cache with TTL."""
-        if not self.is_available:
+        if not self._connected or self.client is None:
             return False
         try:
             serialized = json.dumps(value)
@@ -80,7 +83,7 @@ class RedisCache:
 
     async def delete(self, key: str) -> bool:
         """Delete a single key from Redis."""
-        if not self.is_available:
+        if not self._connected or self.client is None:
             return False
         try:
             await self.client.delete(key)
