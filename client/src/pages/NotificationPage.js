@@ -1,10 +1,12 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import { message, Tabs, Button, Empty } from "antd";
 import { useAuth } from "../context/AuthContext";
 import API from "../api";
 
 const NotificationPage = () => {
+  const navigate = useNavigate();
   const { user, setUser } = useAuth();
   const [loading, setLoading] = useState(false);
 
@@ -80,18 +82,36 @@ const NotificationPage = () => {
           {unreadList.length === 0 ? (
             <Empty description="No New Notifications" className="my-5" />
           ) : (
-            unreadList.map((notificationMgs, index) => (
-              <div 
-                className="card shadow-sm mb-2" 
-                style={{ borderLeft: "5px solid #1890ff", borderRadius: "8px" }}
-                key={index}
-              >
-                <div className="card-body py-3">
-                  <i className="fa-solid fa-bell text-primary me-2"></i>
-                  {notificationMgs.message || notificationMgs}
+            unreadList.map((notificationMgs, index) => {
+              const targetPath = notificationMgs?.onClickPath || notificationMgs?.data?.onClickPath;
+              return (
+                <div 
+                  className="card shadow-sm mb-2" 
+                  style={{ 
+                    borderLeft: "5px solid #1890ff", 
+                    borderRadius: "8px",
+                    cursor: targetPath ? "pointer" : "default",
+                    transition: "transform 0.15s ease, box-shadow 0.15s ease",
+                  }}
+                  key={index}
+                  onClick={() => {
+                    if (targetPath) navigate(targetPath);
+                  }}
+                >
+                  <div className="card-body py-3 d-flex align-items-center justify-content-between">
+                    <div>
+                      <i className="fa-solid fa-bell text-primary me-2"></i>
+                      <span>{notificationMgs.message || notificationMgs}</span>
+                    </div>
+                    {targetPath && (
+                      <span className="badge bg-light text-primary border" style={{ fontSize: "11px" }}>
+                        View Details <i className="fa-solid fa-arrow-right ms-1"></i>
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </>
       ),
@@ -118,18 +138,35 @@ const NotificationPage = () => {
           {readList.length === 0 ? (
             <Empty description="No Read Notifications" className="my-5" />
           ) : (
-            readList.map((notificationMgs, index) => (
-              <div 
-                className="card shadow-sm mb-2" 
-                style={{ backgroundColor: "#f8f9fa", borderRadius: "8px" }}
-                key={index}
-              >
-                <div className="card-body py-3">
-                  <i className="fa-solid fa-envelope-open text-secondary me-2"></i>
-                  {notificationMgs.message || notificationMgs}
+            readList.map((notificationMgs, index) => {
+              const targetPath = notificationMgs?.onClickPath || notificationMgs?.data?.onClickPath;
+              return (
+                <div 
+                  className="card shadow-sm mb-2" 
+                  style={{ 
+                    backgroundColor: "#f8f9fa", 
+                    borderRadius: "8px",
+                    cursor: targetPath ? "pointer" : "default",
+                  }}
+                  key={index}
+                  onClick={() => {
+                    if (targetPath) navigate(targetPath);
+                  }}
+                >
+                  <div className="card-body py-3 d-flex align-items-center justify-content-between">
+                    <div>
+                      <i className="fa-solid fa-envelope-open text-secondary me-2"></i>
+                      <span className="text-secondary">{notificationMgs.message || notificationMgs}</span>
+                    </div>
+                    {targetPath && (
+                      <span className="badge bg-white text-secondary border" style={{ fontSize: "11px" }}>
+                        View <i className="fa-solid fa-arrow-right ms-1"></i>
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </>
       ),

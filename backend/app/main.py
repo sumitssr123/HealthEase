@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.database import connect_to_mongo, close_mongo_connection, db_state
 from app.cache import cache
+from app.consumer import start_embedded_consumer, stop_embedded_consumer
 
 from app.routes.auth_routes import router as auth_router
 from app.routes.doctor_routes import router as doctor_router
@@ -33,11 +34,14 @@ async def lifespan(app: FastAPI):
     await connect_to_mongo()
     # 2. Connect to Redis cache & rate limiter
     await cache.connect()
+    # 3. Start embedded RabbitMQ notification consumer thread
+    start_embedded_consumer()
     logger.info("HealthEase Backend initialization complete!")
 
     yield
 
     logger.info("Shutting down HealthEase Backend services...")
+    stop_embedded_consumer()
     await cache.close()
     await close_mongo_connection()
     logger.info("HealthEase Backend shutdown finished.")

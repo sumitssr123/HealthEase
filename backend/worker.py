@@ -12,6 +12,7 @@ import json
 import time
 import signal
 import logging
+from typing import Dict, Any
 from datetime import datetime, timezone
 import pika
 from pika.exceptions import AMQPConnectionError
@@ -32,10 +33,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("healthease.worker")
 
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
-MONGODB_DB = os.getenv("MONGODB_DB", "healthease")
-RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
-RABBITMQ_QUEUE = os.getenv("RABBITMQ_QUEUE", "healthease_notifications")
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017").strip('"\'')
+MONGODB_DB = os.getenv("MONGODB_DB", "HealthEase").strip('"\'')
+RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/").strip('"\'')
+RABBITMQ_QUEUE = os.getenv("RABBITMQ_QUEUE", "healthease_notifications").strip('"\'')
 
 running = True
 
@@ -100,7 +101,15 @@ def process_notification(db, event_data: dict) -> bool:
 def main():
     logger.info("Starting HealthEase RabbitMQ Notification Worker...")
     logger.info("Connecting to MongoDB at %s (DB: %s)...", MONGODB_URI.split("@")[-1], MONGODB_DB)
-    mongo_client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
+    client_kwargs: Dict[str, Any] = {"serverSelectionTimeoutMS": 5000}
+    if "mongodb+srv://" in MONGODB_URI or "ssl=true" in MONGODB_URI.lower():
+        try:
+            import certifi
+            client_kwargs["tlsCAFile"] = certifi.where()
+        except ImportError:
+            pass
+
+    mongo_client = MongoClient(MONGODB_URI, **client_kwargs)
     db = mongo_client[MONGODB_DB]
 
     # Verify Mongo

@@ -271,13 +271,21 @@ async def cancel_appointment(
 
     # Publish notification of status change
     notification_msg = f"Your appointment on {appointment.get('date')} at {appointment.get('time')} is now {requested_status}"
-    publish_notification_event(
+    pub_res = publish_notification_event(
         event_type="appointment-status-updated",
         recipient_user_id=patient_id,
         message=notification_msg,
         on_click_path="/appointments",
         metadata={"appointmentId": appointment_id, "status": requested_status},
     )
+    if not pub_res:
+        await persist_notification_direct(
+            recipient_user_id=patient_id,
+            message=notification_msg,
+            event_type="appointment-status-updated",
+            on_click_path="/appointments",
+            metadata={"appointmentId": appointment_id, "status": requested_status},
+        )
 
     logger.info("Appointment %s status updated to '%s' by user %s", appointment_id, requested_status, user_id)
     return {
