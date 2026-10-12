@@ -64,7 +64,7 @@ async def mark_all_notifications_read(
 
     updated_user = await db.users.find_one(query)
     formatted = format_mongo_doc(updated_user)
-    if "password" in formatted:
+    if formatted and "password" in formatted:
         del formatted["password"]
 
     logger.info("Marked all notifications as read for user %s", user_id)
@@ -96,7 +96,7 @@ async def delete_all_read_notifications(
 
     updated_user = await db.users.find_one(query)
     formatted = format_mongo_doc(updated_user)
-    if "password" in formatted:
+    if formatted and "password" in formatted:
         del formatted["password"]
 
     logger.info("Cleared all read notifications for user %s", user_id)

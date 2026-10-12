@@ -83,7 +83,7 @@ async def book_appointment(
         return {"success": False, "message": "Doctor ID, date, and time are required"}
 
     # Fetch doctor info if not provided
-    doctor_info = body.get("doctorInfo")
+    doctor_info: Dict[str, Any] = body.get("doctorInfo") or {}
     if not doctor_info:
         doc_q = {"_id": ObjectId(doctor_id)} if ObjectId.is_valid(doctor_id) else {"_id": doctor_id}
         doc_found = await db.doctors.find_one(doc_q)
