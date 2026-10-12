@@ -51,19 +51,25 @@ const DoctorAppointments = () => {
         dataIndex: "name",
         render: (text, record) => (
           <span>
-             {record.userInfo.name} 
+             {record.userInfo?.name || "Patient"} 
           </span>
         ),
       },
     {
       title: "Date & Time",
       dataIndex: "date",
-      render: (text, record) => (
-        <span>
-           {moment(record.date, "DD-MM-YYYY").format("DD-MM-YYYY")} &nbsp;
-           <i className="fa-regular fa-clock"></i> {moment(record.time, "HH:mm").format("HH:mm")}
-        </span>
-      ),
+      render: (text, record) => {
+        const isStandardDate = moment(record.date, "DD-MM-YYYY", true).isValid();
+        const formattedDate = isStandardDate ? moment(record.date, "DD-MM-YYYY").format("DD-MM-YYYY") : record.date;
+        const isStandardTime = moment(record.time, "HH:mm", true).isValid();
+        const formattedTime = isStandardTime ? moment(record.time, "HH:mm").format("HH:mm") : record.time;
+        return (
+          <span>
+             {formattedDate} &nbsp;
+             <i className="fa-regular fa-clock"></i> {formattedTime}
+          </span>
+        );
+      },
     },
     {
       title: "Status",
