@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Body, status
 from bson import ObjectId
@@ -113,7 +113,7 @@ async def change_account_status(
     # 1. Update doctor status
     doctor = await db.doctors.find_one_and_update(
         doc_query,
-        {"$set": {"status": new_status, "updatedAt": datetime.utcnow()}},
+        {"$set": {"status": new_status, "updatedAt": datetime.now(timezone.utc)}},
         return_document=True,
     )
 
@@ -129,7 +129,7 @@ async def change_account_status(
 
         await db.users.update_one(
             user_query,
-            {"$set": {"isDoctor": is_doctor_flag, "role": role, "updatedAt": datetime.utcnow()}}
+            {"$set": {"isDoctor": is_doctor_flag, "role": role, "updatedAt": datetime.now(timezone.utc)}}
         )
 
         # 3. Publish in-app notification via RabbitMQ

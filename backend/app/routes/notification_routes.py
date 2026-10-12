@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, Body
 from bson import ObjectId
@@ -53,7 +53,7 @@ async def mark_all_notifications_read(
 
     await db.users.update_one(
         query,
-        {"$set": {"notification": [], "seennotification": seen, "updatedAt": datetime.utcnow()}}
+        {"$set": {"notification": [], "seennotification": seen, "updatedAt": datetime.now(timezone.utc)}}
     )
 
     # Also mark in notifications collection
@@ -89,7 +89,7 @@ async def delete_all_read_notifications(
 
     await db.users.update_one(
         query,
-        {"$set": {"seennotification": [], "updatedAt": datetime.utcnow()}}
+        {"$set": {"seennotification": [], "updatedAt": datetime.now(timezone.utc)}}
     )
 
     await db.notifications.delete_many({"userId": user_id, "read": True})

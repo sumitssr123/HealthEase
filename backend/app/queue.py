@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 import pika
 from bson import ObjectId
@@ -36,11 +36,11 @@ def publish_notification_event(
 
     event_payload = {
         "event_type": event_type,
-        "recipient_user_id": str(recipient_user_id),
+        "recipient_user_id": recipient_user_id,
         "message": message,
         "on_click_path": on_click_path,
         "metadata": metadata or {},
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
     try:
@@ -93,19 +93,19 @@ async def persist_notification_direct(
             "message": message,
             "onClickPath": on_click_path,
             "data": metadata or {"onClickPath": on_click_path},
-            "createdAt": datetime.utcnow(),
+            "createdAt": datetime.now(timezone.utc),
             "read": False,
         }
 
         # 1. Store in notifications collection
         notif_doc = {
-            "userId": str(recipient_user_id),
+            "userId": recipient_user_id,
             "type": event_type,
             "message": message,
             "onClickPath": on_click_path,
             "data": metadata or {},
             "read": False,
-            "createdAt": datetime.utcnow(),
+            "createdAt": datetime.now(timezone.utc),
         }
         await db.notifications.insert_one(notif_doc)
 

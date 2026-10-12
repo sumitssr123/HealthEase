@@ -1,6 +1,6 @@
 import logging
 from typing import Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from bson import ObjectId
 
@@ -44,8 +44,8 @@ async def register(request: Request, body: UserRegisterRequest):
         "role": "patient",
         "notification": [],
         "seennotification": [],
-        "createdAt": datetime.utcnow(),
-        "updatedAt": datetime.utcnow(),
+        "createdAt": datetime.now(timezone.utc),
+        "updatedAt": datetime.now(timezone.utc),
     }
 
     result = await db.users.insert_one(user_doc)
@@ -112,7 +112,7 @@ async def update_user_profile(
     """Update profile information for the authenticated user."""
     db = get_database()
     user_id = current_user.get("_id") or current_user.get("id")
-    update_fields: Dict[str, Any] = {"updatedAt": datetime.utcnow()}
+    update_fields: Dict[str, Any] = {"updatedAt": datetime.now(timezone.utc)}
 
     if body.name is not None and body.name.strip():
         update_fields["name"] = body.name.strip()

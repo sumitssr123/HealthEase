@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Request, Body, status
 from bson import ObjectId
@@ -29,9 +29,9 @@ async def check_booking_availability(
     Cancelled appointments do NOT block availability.
     """
     db = get_database()
-    doctor_id = str(body.doctorId)
-    date = str(body.date).strip()
-    time = str(body.time).strip()
+    doctor_id = body.doctorId
+    date = body.date.strip()
+    time = body.time.strip()
 
     # Query for active booking
     conflict = await db.appointments.find_one({
@@ -112,8 +112,8 @@ async def book_appointment(
         "date": date,
         "time": time,
         "status": "booked",  # Immediately confirmed!
-        "createdAt": datetime.utcnow(),
-        "updatedAt": datetime.utcnow(),
+        "createdAt": datetime.now(timezone.utc),
+        "updatedAt": datetime.now(timezone.utc),
     }
 
     try:
@@ -265,7 +265,7 @@ async def cancel_appointment(
     # Update appointment status
     updated = await db.appointments.find_one_and_update(
         query,
-        {"$set": {"status": requested_status, "updatedAt": datetime.utcnow()}},
+        {"$set": {"status": requested_status, "updatedAt": datetime.now(timezone.utc)}},
         return_document=True,
     )
 

@@ -12,7 +12,7 @@ import json
 import time
 import signal
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 import pika
 from pika.exceptions import AMQPConnectionError
 from pymongo import MongoClient
@@ -73,7 +73,7 @@ def process_notification(db, event_data: dict) -> bool:
             "onClickPath": on_click_path,
             "data": metadata,
             "read": False,
-            "createdAt": datetime.utcnow(),
+            "createdAt": datetime.now(timezone.utc),
         }
         db.notifications.insert_one(notif_doc)
 
@@ -83,7 +83,7 @@ def process_notification(db, event_data: dict) -> bool:
             "message": message,
             "onClickPath": on_click_path,
             "data": metadata or {"onClickPath": on_click_path},
-            "createdAt": datetime.utcnow().isoformat(),
+            "createdAt": datetime.now(timezone.utc).isoformat(),
             "read": False,
         }
 

@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Body, status
 from bson import ObjectId
@@ -41,8 +41,8 @@ async def apply_doctor(
     doctor_data.update({
         "userId": user_id,
         "status": "pending",
-        "createdAt": datetime.utcnow(),
-        "updatedAt": datetime.utcnow(),
+        "createdAt": datetime.now(timezone.utc),
+        "updatedAt": datetime.now(timezone.utc),
     })
 
     result = await db.doctors.insert_one(doctor_data)
@@ -179,7 +179,7 @@ async def update_doctor_profile(
 
     # Update query based on user's own userId (prevents updating other doctors)
     update_data = {k: v for k, v in body.items() if k not in ["_id", "userId", "status", "createdAt"]}
-    update_data["updatedAt"] = datetime.utcnow()
+    update_data["updatedAt"] = datetime.now(timezone.utc)
 
     updated = await db.doctors.find_one_and_update(
         {"userId": user_id},

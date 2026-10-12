@@ -1,6 +1,6 @@
 import logging
 from typing import Optional, Any, Dict, overload
-from datetime import datetime
+from datetime import datetime, timezone
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo import ASCENDING, IndexModel
@@ -148,7 +148,7 @@ async def bootstrap_admin() -> None:
     try:
         from app.security import get_password_hash
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         result = await db_state.db.users.update_one(
             {"email": settings.ADMIN_EMAIL},
             {
