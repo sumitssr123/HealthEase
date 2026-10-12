@@ -86,7 +86,7 @@ async def readiness_check():
 
     # Verify MongoDB
     is_ready = True
-    if db_state.db is not None:
+    if db_state.db is not None and db_state.client is not None:
         try:
             await db_state.client.admin.command("ping")
             deps["mongodb"] = "connected"

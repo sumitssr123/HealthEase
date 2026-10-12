@@ -60,6 +60,11 @@ async def get_current_user(authorization: Optional[str] = Header(None)) -> Dict[
         )
 
     formatted = format_mongo_doc(user)
+    if not formatted:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User account could not be loaded",
+        )
     # Never expose password hash downstream
     if "password" in formatted:
         del formatted["password"]
