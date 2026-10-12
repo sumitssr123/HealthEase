@@ -154,8 +154,14 @@ def _worker_loop():
 
 
 def start_embedded_consumer():
-    """Start the embedded background consumer daemon thread."""
+    """Start the embedded background consumer daemon thread if enabled."""
     global _consumer_thread, _stop_event
+    import os
+    enabled = os.getenv("EMBEDDED_WORKER_ENABLED", "true").strip().lower() in ("true", "1", "yes")
+    if not enabled:
+        logger.info("Embedded RabbitMQ consumer is disabled (EMBEDDED_WORKER_ENABLED=false). Standalone worker handles queue.")
+        return
+
     if _consumer_thread is not None and _consumer_thread.is_alive():
         logger.debug("Embedded consumer is already running.")
         return

@@ -1,0 +1,26 @@
+# Virtual environments
+venv/
+.venv/
+backend/venv/
+
+# Node dependencies and build artifacts
+client/node_modules/
+client/build/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# Testing and coverage
+.pytest_cache/
+
+# Local configuration and environment
+*.env
+*.log
+
+# Version control & IDE
+.git/
+.vscode/
+.idea/
