@@ -14,6 +14,7 @@ import signal
 import logging
 from datetime import datetime
 import pika
+from pika.exceptions import AMQPConnectionError
 from pymongo import MongoClient
 from bson import ObjectId
 from dotenv import load_dotenv
@@ -127,6 +128,8 @@ def main():
             for method_frame, properties, body in channel.consume(RABBITMQ_QUEUE, auto_ack=False):
                 if not running:
                     break
+                if not method_frame or body is None:
+                    continue
 
                 try:
                     event_data = json.loads(body.decode("utf-8"))
@@ -146,7 +149,7 @@ def main():
 
             connection.close()
 
-        except pika.exceptions.AMQPConnectionError as err:
+        except AMQPConnectionError as err:
             if running:
                 logger.warning("RabbitMQ broker disconnected: %s. Retrying in 5 seconds...", err)
                 time.sleep(5)
