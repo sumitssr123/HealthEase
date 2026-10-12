@@ -1,9 +1,10 @@
 import logging
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, overload
 from datetime import datetime
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pymongo import ASCENDING, IndexModel
+from pymongo.errors import DuplicateKeyError
 
 from app.config import settings
 
@@ -25,26 +26,53 @@ def get_database() -> AsyncIOMotorDatabase:
     return db_state.db
 
 
-async def connect_to_mongo() -> None:
-    """Initialize connection to MongoDB (Atlas or local) and ensure indexes."""
-    logger.info("Connecting to MongoDB at %s (DB: %s)...", 
-                settings.MONGODB_URI.split("@")[-1] if "@" in settings.MONGODB_URI else settings.MONGODB_URI, 
-                settings.MONGODB_DB)
+async def _connect_client(uri: str, db_name: str) -> bool:
+    """Helper to initialize and ping a Motor client."""
     try:
-        db_state.client = AsyncIOMotorClient(
-            settings.MONGODB_URI,
-            serverSelectionTimeoutMS=5000,
-            maxPoolSize=50,
-            minPoolSize=10,
+        client_kwargs: Dict[str, Any] = {
+            "serverSelectionTimeoutMS": 4000,
+            "maxPoolSize": 50,
+            "minPoolSize": 10,
+        }
+        if "mongodb+srv://" in uri or "ssl=true" in uri.lower():
+            try:
+                import certifi
+                client_kwargs["tlsCAFile"] = certifi.where()
+            except ImportError:
+                pass
+
+        client = AsyncIOMotorClient(uri, **client_kwargs)
+        await client.admin.command("ping")
+        db_state.client = client
+        db_state.db = client[db_name]
+        return True
+    except Exception:
+        return False
+
+
+async def connect_to_mongo() -> None:
+    """Initialize connection to MongoDB (Atlas or local) with automatic fallback and ensure indexes."""
+    target_uri = settings.MONGODB_URI
+    db_name = settings.MONGODB_DB
+    sanitized_uri = target_uri.split("@")[-1] if "@" in target_uri else target_uri
+    logger.info("Connecting to MongoDB at %s (DB: %s)...", sanitized_uri, db_name)
+
+    connected = await _connect_client(target_uri, db_name)
+    if not connected and target_uri != "mongodb://localhost:27017":
+        logger.warning(
+            "Primary MongoDB connection (%s) unavailable. Attempting local MongoDB fallback at mongodb://localhost:27017...",
+            sanitized_uri,
         )
-        db_state.db = db_state.client[settings.MONGODB_DB]
-        # Quick ping to verify connectivity
-        await db_state.client.admin.command("ping")
+        connected = await _connect_client("mongodb://localhost:27017", db_name)
+        if connected:
+            logger.info("Connected to local MongoDB fallback at mongodb://localhost:27017 (DB: %s)", db_name)
+
+    if connected:
         logger.info("Successfully connected to MongoDB!")
         await init_indexes()
         await bootstrap_admin()
-    except Exception as exc:
-        logger.warning("MongoDB initial connection error: %s. Application will continue with reconnection capability.", exc)
+    else:
+        logger.warning("MongoDB initial connection error. Application will continue with reconnection capability.")
 
 
 async def close_mongo_connection() -> None:
@@ -111,39 +139,53 @@ async def init_indexes() -> None:
 
 
 async def bootstrap_admin() -> None:
-    """Ensure an administrator user exists on startup without requiring manual DB edits."""
+    """Ensure an administrator user exists on startup without requiring manual DB edits.
+    Uses an idempotent upsert to prevent race conditions when multiple instances start concurrently.
+    """
     if db_state.db is None or not settings.ADMIN_EMAIL:
         return
 
     try:
         from app.security import get_password_hash
 
-        existing = await db_state.db.users.find_one({"email": settings.ADMIN_EMAIL})
-        if not existing:
-            admin_doc = {
-                "name": settings.ADMIN_NAME,
-                "email": settings.ADMIN_EMAIL,
-                "password": get_password_hash(settings.ADMIN_PASSWORD),
-                "isAdmin": True,
-                "isDoctor": False,
-                "role": "admin",
-                "notification": [],
-                "seennotification": [],
-                "createdAt": datetime.utcnow(),
-                "updatedAt": datetime.utcnow(),
-            }
-            await db_state.db.users.insert_one(admin_doc)
+        now = datetime.utcnow()
+        result = await db_state.db.users.update_one(
+            {"email": settings.ADMIN_EMAIL},
+            {
+                "$setOnInsert": {
+                    "name": settings.ADMIN_NAME,
+                    "password": get_password_hash(settings.ADMIN_PASSWORD),
+                    "isDoctor": False,
+                    "notification": [],
+                    "seennotification": [],
+                    "createdAt": now,
+                },
+                "$set": {
+                    "isAdmin": True,
+                    "role": "admin",
+                    "updatedAt": now,
+                },
+            },
+            upsert=True,
+        )
+        if result.upserted_id:
             logger.info("Bootstrap: Created default administrator account (%s)", settings.ADMIN_EMAIL)
         else:
-            # Ensure admin flags are set
-            if not existing.get("isAdmin"):
-                await db_state.db.users.update_one(
-                    {"_id": existing["_id"]},
-                    {"$set": {"isAdmin": True, "role": "admin"}}
-                )
-                logger.info("Bootstrap: Elevated existing user %s to admin", settings.ADMIN_EMAIL)
+            logger.info("Bootstrap: Verified existing administrator account (%s)", settings.ADMIN_EMAIL)
+    except DuplicateKeyError:
+        logger.info("Bootstrap: Administrator account (%s) initialized concurrently by another instance", settings.ADMIN_EMAIL)
     except Exception as exc:
         logger.warning("Bootstrap admin check skipped: %s", exc)
+
+
+@overload
+def format_mongo_doc(doc: None) -> None:
+    ...
+
+
+@overload
+def format_mongo_doc(doc: Dict[str, Any]) -> Dict[str, Any]:
+    ...
 
 
 def format_mongo_doc(doc: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -151,7 +193,7 @@ def format_mongo_doc(doc: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     if doc is None:
         return None
 
-    cleaned = {}
+    cleaned: Dict[str, Any] = {}
     for k, v in doc.items():
         if k == "_id":
             cleaned["_id"] = str(v)
