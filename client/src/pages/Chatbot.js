@@ -112,7 +112,9 @@ const Chatbot = () => {
                 
                 speak(reply);
             } else {
-                message.error(res.data.message || "Chatbot service response error");
+                const errMsg = res.data.message || res.data.error || "Chatbot service response error";
+                message.error(errMsg);
+                setChatDisplay(prev => [...prev, { role: "AI Doctor", text: `⚠️ ${errMsg}` }]);
             }
         } catch (e) {
             setLoading(false);
