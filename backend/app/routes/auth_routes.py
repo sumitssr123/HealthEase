@@ -1,4 +1,5 @@
 import logging
+from typing import Dict, Any
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from bson import ObjectId
@@ -83,7 +84,7 @@ async def login(request: Request, body: UserLoginRequest):
     token = create_access_token(data=token_data)
 
     formatted_user = format_mongo_doc(user)
-    if "password" in formatted_user:
+    if formatted_user and "password" in formatted_user:
         del formatted_user["password"]
 
     logger.info("User %s successfully logged in", body.email)
@@ -111,7 +112,7 @@ async def update_user_profile(
     """Update profile information for the authenticated user."""
     db = get_database()
     user_id = current_user.get("_id") or current_user.get("id")
-    update_fields = {"updatedAt": datetime.utcnow()}
+    update_fields: Dict[str, Any] = {"updatedAt": datetime.utcnow()}
 
     if body.name is not None and body.name.strip():
         update_fields["name"] = body.name.strip()
@@ -130,7 +131,7 @@ async def update_user_profile(
 
     updated_user = await db.users.find_one(query)
     formatted = format_mongo_doc(updated_user)
-    if "password" in formatted:
+    if formatted and "password" in formatted:
         del formatted["password"]
 
     return {

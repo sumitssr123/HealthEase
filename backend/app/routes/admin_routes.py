@@ -54,9 +54,10 @@ async def get_all_users(current_user: dict = Depends(require_admin)):
     users = []
     async for u in cursor:
         doc = format_mongo_doc(u)
-        if "password" in doc:
-            del doc["password"]
-        users.append(doc)
+        if doc:
+            if "password" in doc:
+                del doc["password"]
+            users.append(doc)
 
     return {
         "success": True,
